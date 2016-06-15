@@ -162,7 +162,7 @@ func (p *Plugin) Process(contentType string, content []byte, config map[string]c
 	logger := log.New()
 	logger.Println("Statistics Processor started")
 
-	var metrics []plugin.PluginMetricType
+	var metrics []plugin.MetricType
 
 	if config != nil {
 		if config["SlidingWindowLength"].(ctypes.ConfigValueInt).Value > 0 {
@@ -189,7 +189,7 @@ func (p *Plugin) Process(contentType string, content []byte, config map[string]c
 			logger.Printf("Unknown Data Type Received: Type %T", v)
 			return "", nil, errors.New("Unknown Data Type Received.")
 		case float64:
-			p.insertInToBuffer(metrics[i].Data().(float64), metrics[i].Namespace())
+			p.insertInToBuffer(metrics[i].Data().(float64), metrics[i].Namespace().Strings())
 
 		}
 	}
@@ -198,9 +198,9 @@ func (p *Plugin) Process(contentType string, content []byte, config map[string]c
 
 	for i, _ := range metrics {
 		if p.bufferCurSize < p.bufferMaxSize {
-			metrics[i].Data_, _ = p.calculateStats(p.buffer[concatNameSpace(metrics[i].Namespace())][0:p.bufferCurSize], logger)
+			metrics[i].Data_, _ = p.calculateStats(p.buffer[concatNameSpace(metrics[i].Namespace().Strings())][0:p.bufferCurSize], logger)
 		} else {
-			metrics[i].Data_, _ = p.calculateStats(p.buffer[concatNameSpace(metrics[i].Namespace())], logger)
+			metrics[i].Data_, _ = p.calculateStats(p.buffer[concatNameSpace(metrics[i].Namespace().Strings())], logger)
 		}
 
 		logger.Printf("Statistics %v", metrics[i].Data())
