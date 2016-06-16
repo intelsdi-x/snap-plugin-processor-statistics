@@ -34,8 +34,15 @@ This builds the plugin in `/build/rootfs`
 `export SNAP_PATH=$GOPATH/src/github.com/intelsdi-x/snap/build`
 
 ## Documentation
-This Snap processor plugin calculates statistics over a sliding window. Currently, the plugin calculates the mean, median, standard deviation, variance and 99th-percenticle over a sliding window and handles only float64 data type. 
+This Snap processor plugin calculates statistics over a sliding window. Currently, the plugin calculates the mean, median, standard deviation, variance, 95th-percentile and 99th-percenticle over a sliding window. 
+
 Note: This Snap processor plugin changes the metric data type to map[string]float64. Any Snap publisher plugin used with this plugin should register the data type with gob. 
+
+```
+import "encoding/gob"
+
+gob.Register(map[string]float64{})
+```
 
 ### Examples
 Creating a task manifest file. 
@@ -90,4 +97,4 @@ This repository is one of **many** plugins in **snap**, a powerful telemetry fra
 
 * Author: [Balaji Subramaniam](https://github.com/balajismaniam)
 
-And **thank you!** Your contribution, through code and participation, is incredibly important to us.
+And **thank you!** Your participation and contribution through code is important to us.
