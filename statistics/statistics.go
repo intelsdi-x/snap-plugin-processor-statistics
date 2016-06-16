@@ -21,11 +21,8 @@ package statistics
 import (
 	"bytes"
 	"encoding/gob"
-	"errors"
+	// "errors"
 	log "github.com/Sirupsen/logrus"
-	//	"math"
-	//	"reflect"
-	// "fmt"
 
 	"github.com/intelsdi-x/snap/control/plugin"
 	"github.com/intelsdi-x/snap/control/plugin/cpolicy"
@@ -39,10 +36,8 @@ const (
 	pluginType = plugin.ProcessorPluginType
 )
 
-var statsString = []string{"mean", "median", "stddev", "variance", "90%-ile", "95%-ile", "99%-ile", "99.99%-ile"}
-
 type Plugin struct {
-	buffer        map[string][]float64
+	buffer        map[string][]interface{}
 	bufferMaxSize int
 	bufferCurSize int
 	bufferIndex   int
@@ -59,7 +54,7 @@ func Meta() *plugin.PluginMeta {
 }
 
 func New() *Plugin {
-	buffer := make(map[string][]float64)
+	buffer := make(map[string][]interface{})
 	p := &Plugin{buffer: buffer,
 		bufferMaxSize: 100,
 		bufferCurSize: 0,
@@ -67,8 +62,10 @@ func New() *Plugin {
 	return p
 }
 
-func (p *Plugin) calculateStats(buffer []float64, logger *log.Logger) (map[string]float64, error) {
+func (p *Plugin) calculateStats(buff []interface{}, logger *log.Logger) (map[string]float64, error) {
 	result := make(map[string]float64)
+
+	buffer := stats.LoadRawData(buff)
 
 	val, err := stats.Mean(buffer)
 	if err != nil {
@@ -98,6 +95,13 @@ func (p *Plugin) calculateStats(buffer []float64, logger *log.Logger) (map[strin
 
 	result["var"] = val
 
+	val, err = stats.Percentile(buffer, 95)
+	if err != nil {
+		return nil, err
+	}
+
+	result["95%-ile"] = val
+
 	val, err = stats.Percentile(buffer, 99)
 	if err != nil {
 		return nil, err
@@ -118,10 +122,10 @@ func concatNameSpace(namespace []string) string {
 
 }
 
-func (p *Plugin) insertInToBuffer(val float64, ns []string) {
+func (p *Plugin) insertInToBuffer(val interface{}, ns []string) {
 
 	if p.bufferCurSize == 0 {
-		var buff = make([]float64, p.bufferMaxSize)
+		var buff = make([]interface{}, p.bufferMaxSize)
 		buff[0] = val
 		p.buffer[concatNameSpace(ns)] = buff
 	} else {
@@ -183,15 +187,7 @@ func (p *Plugin) Process(contentType string, content []byte, config map[string]c
 
 	for i, _ := range metrics {
 		logger.Printf("Data received %v", metrics[i].Data())
-
-		switch v := metrics[i].Data().(type) {
-		default:
-			logger.Printf("Unknown Data Type Received: Type %T", v)
-			return "", nil, errors.New("Unknown Data Type Received.")
-		case float64:
-			p.insertInToBuffer(metrics[i].Data().(float64), metrics[i].Namespace().Strings())
-
-		}
+		p.insertInToBuffer(metrics[i].Data(), metrics[i].Namespace().Strings())
 	}
 
 	p.updateCounters()
