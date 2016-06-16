@@ -21,7 +21,7 @@ package statistics
 import (
 	"bytes"
 	"encoding/gob"
-	// "errors"
+	"errors"
 	log "github.com/Sirupsen/logrus"
 
 	"github.com/intelsdi-x/snap/control/plugin"
@@ -62,10 +62,36 @@ func New() *Plugin {
 	return p
 }
 
-func (p *Plugin) calculateStats(buff []interface{}, logger *log.Logger) (map[string]float64, error) {
+func (p *Plugin) calculateStats(buff interface{}, logger *log.Logger) (map[string]float64, error) {
 	result := make(map[string]float64)
 
-	buffer := stats.LoadRawData(buff)
+	var buffer []float64
+
+	logger.Printf("Buff %v", buff)
+
+	for _, val := range buff.([]interface{}) {
+		switch v := val.(type) {
+		default:
+			logger.Printf("Unknown data received: Type %T", v)
+			return nil, errors.New("Unknown data received: Type")
+		case int:
+			buffer = append(buffer, float64(val.(int)))
+		case int32:
+			buffer = append(buffer, float64(val.(int32)))
+		case int64:
+			buffer = append(buffer, float64(val.(int64)))
+		case float64:
+			buffer = append(buffer, val.(float64))
+		case float32:
+			buffer = append(buffer, float64(val.(float32)))
+		case uint64:
+			buffer = append(buffer, float64(val.(uint64)))
+		case uint32:
+			buffer = append(buffer, float64(val.(uint32)))
+		}
+	}
+
+	logger.Printf("Buffer %v", buffer)
 
 	val, err := stats.Mean(buffer)
 	if err != nil {
