@@ -7,14 +7,22 @@ Snap plugin intended to process data and return statistics over a sliding window
   * [Configuration and Usage](configuration-and-usage)
 2. [Documentation](#documentation)
   * [Examples](#examples)
+  * [Roadmap](#roadmap)
 3. [Community Support](#community-support)
-4. [Acknowledgements](#acknowledgements)
+4. [Contributing](#contributing)
+5. [License](#license)
+6. [Acknowledgements](#acknowledgements)
+
 
 ## Getting Started
 ### System Requirements
-* Plugin supports only Linux systems
+* Linux/amd64
 
 ### Installation
+#### Download plugin binary: 
+
+You can get the pre-built binaries for your OS and architecture at Snap's [Github Releases](https://github.com/intelsdi-x/snap/releases) page.
+
 #### To build the plugin binary:
 Fork https://github.com/intelsdi-x/snap-plugin-processor-statistics
 
@@ -36,7 +44,7 @@ This builds the plugin in `/build/rootfs`
 ## Documentation
 This Snap processor plugin calculates statistics over a sliding window. Currently, the plugin calculates the mean, median, standard deviation, variance, 95th-percentile and 99th-percenticle over a sliding window. 
 
-Note: This Snap processor plugin changes the metric data type to map[string]float64. Any Snap publisher plugin used with this plugin should register the data type with gob. 
+Note: This Snap processor plugin changes the metric data type to `map[string]float64`. Any Snap publisher plugin used with this plugin should register the data type with gob. 
 
 ```
 import "encoding/gob"
@@ -89,9 +97,23 @@ Creating a task manifest file.
 }
 ```
 
-## Community Support
-This repository is one of **many** plugins in **snap**, a powerful telemetry framework. See the full project at http://github.com/intelsdi-x/snap To reach out to other users, head to the [main framework](https://github.com/intelsdi-x/snap#community-support)
+### Roadmap
+There isn't a current roadmap for this plugin, but it is in active development. As we launch this plugin, we do not have any outstanding requirements for the next release.
 
+If you have a feature request, please add it as an [issue](https://github.com/intelsdi-x/snap-plugin-processor-statistics/issues) and feel free to then submit a [pull request](https://github.com/intelsdi-x/snap-plugin-processor-statistics/pulls).
+
+## Community Support
+This repository is one of **many** plugins in **Snap**, the open telemetry framework. See the full project at http://github.com/intelsdi-x/snap. To reach out to other users, head to the [main framework](https://github.com/intelsdi-x/snap#community-support).
+
+## Contributing
+We love contributions!
+
+There's more than one way to give back, from examples to blogs to code updates. See our recommended process in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+And **thank you!** Your contribution, through code and participation, is incredibly important to us.
+
+## License
+[Snap](http://github.com:intelsdi-x/snap), along with this plugin, is an Open Source software released under the Apache 2.0 [License](LICENSE).
 
 ## Acknowledgements
 
