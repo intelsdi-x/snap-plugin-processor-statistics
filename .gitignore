@@ -1,0 +1,4 @@
+vendor/
+main
+profile.cov
+build/rootfs/snap-plugin-processor-statistics

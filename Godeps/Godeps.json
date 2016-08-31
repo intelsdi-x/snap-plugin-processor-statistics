@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/intelsdi-x/snap-plugin-processor-statistics",
-	"GoVersion": "go1.6",
+	"GoVersion": "go1.7",
 	"GodepVersion": "v74",
 	"Deps": [
 		{
@@ -111,6 +111,10 @@
 			"ImportPath": "github.com/smartystreets/goconvey/convey/reporting",
 			"Comment": "1.6.0-10-g995f5b2",
 			"Rev": "995f5b2e021c69b8b028ba6d0b05c1dd500783db"
+		},
+		{
+			"ImportPath": "golang.org/x/sys/unix",
+			"Rev": "a646d33e2ee3172a661fc09bca23bb4889a41bc8"
 		},
 		{
 			"ImportPath": "gopkg.in/yaml.v2",
