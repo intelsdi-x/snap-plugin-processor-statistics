@@ -1,3 +1,5 @@
+build/
+info/
 vendor/
 main
 profile.cov
