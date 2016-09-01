@@ -92,7 +92,6 @@ func TestStatisticsProcessorMetrics(t *testing.T) {
 				time.Sleep(3)
 				rand.Seed(time.Now().UTC().UnixNano())
 				data := randInt(23, 59)
-				//				metrics[i] = *plugin.PluginMetricType(core.JoinNamespace([]string{"foo", "bar"}), time.Now(), nil, "some unit", float64(data))
 				metrics[i] = plugin.MetricType{
 					Data_:      float64(data),
 					Namespace_: core.NewNamespace("foo", "bar"),
@@ -115,7 +114,6 @@ func TestStatisticsProcessorMetrics(t *testing.T) {
 			for i := range metrics {
 
 				data := "I am an unknow data Type"
-				// metrics[i] = *plugin.PluginMetricType([]string{"foo", "bar"}, time.Now(), nil, "some unit", data)
 				metrics[i] = plugin.MetricType{
 					Data_:      data,
 					Namespace_: core.NewNamespace("foo", "bar"),

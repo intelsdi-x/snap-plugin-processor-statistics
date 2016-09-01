@@ -55,6 +55,7 @@ func Meta() *plugin.PluginMeta {
 		[]string{plugin.SnapGOBContentType})
 }
 
+// New() returns a new instance of this
 func New() *Plugin {
 	buffer := make(map[string][]interface{})
 	p := &Plugin{buffer: buffer,
@@ -65,6 +66,7 @@ func New() *Plugin {
 	return p
 }
 
+// calculateStats calaculates the descriptive statistics for buff
 func (p *Plugin) calculateStats(buff interface{}) (map[string]interface{}, error) {
 	result := make(map[string]interface{})
 
@@ -232,6 +234,7 @@ func (p *Plugin) Kurtosis(buffer []float64) float64 {
 	return float64(len(buffer)) * num / math.Pow(den, 2)
 }
 
+// concatNameSpace combines an array of namespces into a single string
 func concatNameSpace(namespace []string) string {
 	completeNamespace := ""
 	for _, ns := range namespace {
@@ -240,6 +243,7 @@ func concatNameSpace(namespace []string) string {
 	return completeNamespace
 }
 
+// insertInToBuffer adds a new value into this' buffer object
 func (p *Plugin) insertInToBuffer(val interface{}, ns []string) {
 
 	if p.bufferCurSize == 0 {
@@ -253,6 +257,7 @@ func (p *Plugin) insertInToBuffer(val interface{}, ns []string) {
 	}
 }
 
+// updateCounters updates the meta informaiton (current size and index) of this' buffer object
 func (p *Plugin) updateCounters() {
 	if p.bufferCurSize < p.bufferMaxSize {
 		p.bufferCurSize++
@@ -265,6 +270,7 @@ func (p *Plugin) updateCounters() {
 	}
 }
 
+// GetConfigPolicy returns the config policy
 func (p *Plugin) GetConfigPolicy() (*cpolicy.ConfigPolicy, error) {
 	cp := cpolicy.New()
 	config := cpolicy.NewPolicyNode()
@@ -281,6 +287,7 @@ func (p *Plugin) GetConfigPolicy() (*cpolicy.ConfigPolicy, error) {
 	return cp, nil
 }
 
+// Process processes the data, inputs the data into this' buffer and calls the descriptive statistics method
 func (p *Plugin) Process(contentType string, content []byte, config map[string]ctypes.ConfigValue) (string, []byte, error) {
 
 	//logger := log.New()
