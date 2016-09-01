@@ -22,12 +22,13 @@ import (
 	"bytes"
 	"encoding/gob"
 	"errors"
+	"math"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/intelsdi-x/snap/control/plugin"
 	"github.com/intelsdi-x/snap/control/plugin/cpolicy"
 	"github.com/intelsdi-x/snap/core/ctypes"
 	"github.com/montanaflynn/stats"
-	"math"
 )
 
 const (
@@ -71,11 +72,12 @@ func (p *Plugin) calculateStats(buff interface{}) (map[string]interface{}, error
 
 	p.logger.Printf("Buff %v", buff)
 
-	var valRange []float64 //stores range values
+	var valRange [2]float64 //stores range values
 	for _, val := range buff.([]interface{}) {
 		switch v := val.(type) {
 		default:
 			p.logger.Printf("Unknown data received: Type %T", v)
+
 			return nil, errors.New("Unknown data received: Type")
 		case int:
 			buffer = append(buffer, float64(val.(int)))
@@ -145,7 +147,7 @@ func (p *Plugin) calculateStats(buff interface{}) (map[string]interface{}, error
 		return nil, err
 	}
 
-	result["Kurtosis"] = Kurtosis(buffer)
+	result["Kurtosis"] = p.Kurtosis(buffer)
 
 	result["Minimum"] = val
 	valRange[0] = val
@@ -157,6 +159,7 @@ func (p *Plugin) calculateStats(buff interface{}) (map[string]interface{}, error
 
 	result["Maximum"] = val
 	valRange[1] = val
+
 	result["Range"] = valRange
 
 	var valArr []float64
@@ -172,7 +175,7 @@ func (p *Plugin) calculateStats(buff interface{}) (map[string]interface{}, error
 		return nil, err
 	}
 
-	result["Skewness"] = Skewness(buffer)
+	result["Skewness"] = p.Skewness(buffer)
 
 	result["Sum"] = val
 
@@ -187,7 +190,7 @@ func (p *Plugin) calculateStats(buff interface{}) (map[string]interface{}, error
 }
 
 //Calculates the population skewness from buffer
-func Skewness(buffer []float64) float64 {
+func (p *Plugin) Skewness(buffer []float64) float64 {
 	if len(buffer) == 0 {
 		return 0
 	}
@@ -205,10 +208,11 @@ func Skewness(buffer []float64) float64 {
 	}
 
 	return math.Sqrt(float64(len(buffer))) * num / math.Pow(den, 3/2)
+
 }
 
 //Calculates the population kurtosis from buffer
-func Kurtosis(buffer []float64) float64 {
+func (p *Plugin) Kurtosis(buffer []float64) float64 {
 	if len(buffer) == 0 {
 		return 0
 	}
@@ -225,7 +229,6 @@ func Kurtosis(buffer []float64) float64 {
 		num += math.Pow(val-mean, 4)
 		den += math.Pow(val-mean, 2)
 	}
-
 	return float64(len(buffer)) * num / math.Pow(den, 2)
 }
 
@@ -240,10 +243,12 @@ func concatNameSpace(namespace []string) string {
 func (p *Plugin) insertInToBuffer(val interface{}, ns []string) {
 
 	if p.bufferCurSize == 0 {
+		p.logger.Printf("In if statement with buffer max size %v", p.bufferMaxSize)
 		var buff = make([]interface{}, p.bufferMaxSize)
 		buff[0] = val
 		p.buffer[concatNameSpace(ns)] = buff
 	} else {
+		p.logger.Printf("In else statement with index %v", p.bufferIndex)
 		p.buffer[concatNameSpace(ns)][p.bufferIndex] = val
 	}
 }
@@ -303,11 +308,11 @@ func (p *Plugin) Process(contentType string, content []byte, config map[string]c
 	for _, metric := range metrics {
 		p.logger.Printf("Data received %v", metric.Data())
 		p.insertInToBuffer(metric.Data(), metric.Namespace().Strings())
-	}
+		p.updateCounters()
 
-	p.updateCounters()
+		//p.updateCounters()
 
-	for _, metric := range metrics {
+		//	for _, metric := range metrics {
 		var err error
 		if p.bufferCurSize < p.bufferMaxSize {
 			metric.Data_, err = p.calculateStats(p.buffer[concatNameSpace(metric.Namespace().Strings())][0:p.bufferCurSize])
@@ -322,6 +327,8 @@ func (p *Plugin) Process(contentType string, content []byte, config map[string]c
 		}
 
 		p.logger.Printf("Statistics %v", metric.Data())
+		//}
+		//	p.logger.Printf("Statistics %v", metrics)
 	}
 
 	gob.Register(map[string]float64{})

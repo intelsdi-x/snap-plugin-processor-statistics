@@ -30,7 +30,7 @@ import (
 
 	"github.com/intelsdi-x/snap/control/plugin"
 	"github.com/intelsdi-x/snap/control/plugin/cpolicy"
-	//"github.com/intelsdi-x/snap/core"
+	"github.com/intelsdi-x/snap/core"
 	"github.com/intelsdi-x/snap/core/ctypes"
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -82,7 +82,7 @@ func TestStatisticsProcessor(t *testing.T) {
 
 func TestStatisticsProcessorMetrics(t *testing.T) {
 	Convey("Statistics Processor tests", t, func() {
-		metrics := make([]plugin.PluginMetricType, 10)
+		metrics := make([]plugin.MetricType, 10)
 		config := make(map[string]ctypes.ConfigValue)
 
 		config["SlidingWindowLength"] = ctypes.ConfigValueInt{Value: -1}
@@ -93,9 +93,9 @@ func TestStatisticsProcessorMetrics(t *testing.T) {
 				rand.Seed(time.Now().UTC().UnixNano())
 				data := randInt(23, 59)
 				//				metrics[i] = *plugin.PluginMetricType(core.JoinNamespace([]string{"foo", "bar"}), time.Now(), nil, "some unit", float64(data))
-				metrics[i] = plugin.PluginMetricType{
+				metrics[i] = plugin.MetricType{
 					Data_:      float64(data),
-					Namespace_: []string{"foo", "bar"},
+					Namespace_: core.NewNamespace("foo", "bar"),
 					Timestamp_: time.Now(),
 				}
 			}
@@ -105,15 +105,10 @@ func TestStatisticsProcessorMetrics(t *testing.T) {
 
 			movingAverageObj := New()
 
-			_, receivedData, _ := movingAverageObj.Process("snap.gob", buf.Bytes(), nil)
+			movingAverageObj.Process("snap.gob", buf.Bytes(), nil)
 
-			var metricsNew []plugin.PluginMetricType
-
-			//Decodes the content into MetricType
-			dec := gob.NewDecoder(bytes.NewBuffer(receivedData))
-			dec.Decode(&metricsNew)
+			var metricsNew []plugin.MetricType
 			So(metrics, ShouldNotResemble, metricsNew)
-
 		})
 
 		Convey("Statistics for unknown data type", func() {
@@ -121,9 +116,9 @@ func TestStatisticsProcessorMetrics(t *testing.T) {
 
 				data := "I am an unknow data Type"
 				// metrics[i] = *plugin.PluginMetricType([]string{"foo", "bar"}, time.Now(), nil, "some unit", data)
-				metrics[i] = plugin.PluginMetricType{
+				metrics[i] = plugin.MetricType{
 					Data_:      data,
-					Namespace_: []string{"foo", "bar"},
+					Namespace_: core.NewNamespace("foo", "bar"),
 					Timestamp_: time.Now(),
 				}
 			}
@@ -135,13 +130,12 @@ func TestStatisticsProcessorMetrics(t *testing.T) {
 
 			_, receivedData, _ := movingAverageObj.Process("snap.gob", buf.Bytes(), nil)
 
-			var metricsNew []plugin.PluginMetricType
+			var metricsNew []plugin.MetricType
 
 			//Decodes the content into MetricType
 			dec := gob.NewDecoder(bytes.NewBuffer(receivedData))
 			dec.Decode(&metricsNew)
 			So(metrics, ShouldNotResemble, metricsNew)
-
 		})
 
 	})
