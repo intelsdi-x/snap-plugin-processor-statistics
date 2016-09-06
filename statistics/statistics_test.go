@@ -89,7 +89,6 @@ func TestStatisticsProcessorMetrics(t *testing.T) {
 
 		Convey("Statistics for float64 data", func() {
 			for i := range metrics {
-				time.Sleep(3)
 				rand.Seed(time.Now().UTC().UnixNano())
 				data := randInt(23, 59)
 				metrics[i] = plugin.MetricType{
