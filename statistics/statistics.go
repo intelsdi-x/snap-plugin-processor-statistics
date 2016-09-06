@@ -66,18 +66,18 @@ func New() *Plugin {
 }
 
 // calculateStats calaculates the descriptive statistics for buff
-func (p *Plugin) calculateStats(buff interface{}, logger *log.Logger) (map[string][]float64, error) {
+func (p *Plugin) calculateStats(buff interface{}) (map[string][]float64, error) {
 	result := make(map[string][]float64)
 
 	var buffer []float64
 
-	logger.Printf("Buff %v", buff)
+	log.Printf("Buff %v", buff)
 
 	var valRange []float64 //stores range values
 	for _, val := range buff.([]interface{}) {
 		switch v := val.(type) {
 		default:
-			logger.Printf("Unknown data received: Type %T", v)
+			log.Printf("Unknown data received: Type %T", v)
 			return nil, errors.New("Unknown data received: Type")
 		case int:
 			buffer = append(buffer, float64(val.(int)))
@@ -96,7 +96,7 @@ func (p *Plugin) calculateStats(buff interface{}, logger *log.Logger) (map[strin
 		}
 	}
 
-	logger.Printf("Buffer %v", buffer)
+	log.Printf("Buffer %v", buffer)
 
 	result["Count"] = []float64{float64(len(buffer))}
 
@@ -173,8 +173,8 @@ func (p *Plugin) calculateStats(buff interface{}, logger *log.Logger) (map[strin
 		return nil, err
 	}
 
-	result["Kurtosis"] = p.Kurtosis(buffer, logger)
-	result["Skewness"] = p.Skewness(buffer, logger)
+	result["Kurtosis"] = p.Kurtosis(buffer)
+	result["Skewness"] = p.Skewness(buffer)
 
 	result["Sum"] = []float64{val}
 
@@ -188,9 +188,9 @@ func (p *Plugin) calculateStats(buff interface{}, logger *log.Logger) (map[strin
 }
 
 //Calculates the population skewness from buffer
-func (p *Plugin) Skewness(buffer []float64, logger *log.Logger) []float64 {
+func (p *Plugin) Skewness(buffer []float64) []float64 {
 	if len(buffer) == 0 {
-		logger.Printf("Buffer does not contain any data.")
+		log.Printf("Buffer does not contain any data.")
 		return []float64{}
 	}
 	var num float64
@@ -211,9 +211,9 @@ func (p *Plugin) Skewness(buffer []float64, logger *log.Logger) []float64 {
 }
 
 //Calculates the population kurtosis from buffer
-func (p *Plugin) Kurtosis(buffer []float64, logger *log.Logger) []float64 {
+func (p *Plugin) Kurtosis(buffer []float64) []float64 {
 	if len(buffer) == 0 {
-		logger.Printf("Buffer does not contain any data.")
+		log.Printf("Buffer does not contain any data.")
 		return []float64{}
 	}
 	var num float64
@@ -234,20 +234,20 @@ func (p *Plugin) Kurtosis(buffer []float64, logger *log.Logger) []float64 {
 
 // concatNameSpace combines an array of namespces into a single string
 func concatNameSpace(namespace []string) string {
-	completeNamespace := strings.Join(namespace, ", ")
+	completeNamespace := strings.Join(namespace, "/")
 	return completeNamespace
 }
 
 // insertInToBuffer adds a new value into this' buffer object
-func (p *Plugin) insertInToBuffer(val interface{}, ns []string, logger *log.Logger) {
+func (p *Plugin) insertInToBuffer(val interface{}, ns []string) {
 
 	if p.bufferCurSize == 0 {
-		logger.Printf("In if statement with buffer max size %v", p.bufferMaxSize)
+		log.Printf("In if statement with buffer max size %v", p.bufferMaxSize)
 		var buff = make([]interface{}, p.bufferMaxSize)
 		buff[0] = val
 		p.buffer[concatNameSpace(ns)] = buff
 	} else {
-		logger.Printf("In else statement with index %v", p.bufferIndex)
+		log.Printf("In else statement with index %v", p.bufferIndex)
 		p.buffer[concatNameSpace(ns)][p.bufferIndex] = val
 	}
 }
@@ -284,9 +284,6 @@ func (p *Plugin) GetConfigPolicy() (*cpolicy.ConfigPolicy, error) {
 
 // Process processes the data, inputs the data into this' buffer and calls the descriptive statistics method
 func (p *Plugin) Process(contentType string, content []byte, config map[string]ctypes.ConfigValue) (string, []byte, error) {
-	logger := log.New()
-	logger.Println("Statistics Processor started")
-
 	var metrics []plugin.MetricType
 
 	if config != nil {
@@ -302,28 +299,31 @@ func (p *Plugin) Process(contentType string, content []byte, config map[string]c
 	//Decodes the content into PluginMetricType
 	dec := gob.NewDecoder(bytes.NewBuffer(content))
 	if err := dec.Decode(&metrics); err != nil {
-		logger.Printf("Error decoding: error=%v content=%v", err, content)
+		log.Printf("Error decoding: error=%v content=%v", err, content)
 		return "", nil, err
 	}
 
 	for _, metric := range metrics {
-		logger.Printf("Data received %v", metric.Data())
-		p.insertInToBuffer(metric.Data(), metric.Namespace().Strings(), logger)
-		p.updateCounters()
+		log.Printf("Data received %v", metric.Data())
+		p.insertInToBuffer(metric.Data(), metric.Namespace().Strings())
+	}
 
+	p.updateCounters()
+
+	for _, metric := range metrics {
 		var err error
 		if p.bufferCurSize < p.bufferMaxSize {
-			metric.Data_, err = p.calculateStats(p.buffer[concatNameSpace(metric.Namespace().Strings())][0:p.bufferCurSize], logger)
+			metric.Data_, err = p.calculateStats(p.buffer[concatNameSpace(metric.Namespace().Strings())][0:p.bufferCurSize])
 			if err != nil {
 				return "", nil, err
 			}
 		}
-		metric.Data_, err = p.calculateStats(p.buffer[concatNameSpace(metric.Namespace().Strings())], logger)
+		metric.Data_, err = p.calculateStats(p.buffer[concatNameSpace(metric.Namespace().Strings())])
 		if err != nil {
 			return "", nil, err
 		}
 
-		logger.Printf("Statistics %v", metric.Data())
+		log.Printf("Statistics %v", metric.Data())
 	}
 
 	gob.Register(map[string]float64{})
