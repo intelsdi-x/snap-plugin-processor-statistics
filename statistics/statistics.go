@@ -148,7 +148,7 @@ func (p *Plugin) calculateStats(buff interface{}, logger *log.Logger) (map[strin
 	}
 
 	result["Minimum"] = []float64{val}
-	valRange[0] = val
+	valRange = append(valRange, val)
 
 	val, err = stats.Max(buffer)
 	if err != nil {
@@ -156,7 +156,7 @@ func (p *Plugin) calculateStats(buff interface{}, logger *log.Logger) (map[strin
 	}
 
 	result["Maximum"] = []float64{val}
-	valRange[1] = val
+	valRange = append(valRange, val)
 
 	result["Range"] = valRange
 
