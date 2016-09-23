@@ -22,12 +22,17 @@ import (
 	"bytes"
 	"encoding/gob"
 	"errors"
+	"fmt"
 	"math"
+	"os"
+	"sort"
 	"strings"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/intelsdi-x/snap/control/plugin"
 	"github.com/intelsdi-x/snap/control/plugin/cpolicy"
+	"github.com/intelsdi-x/snap/core"
 	"github.com/intelsdi-x/snap/core/ctypes"
 	"github.com/montanaflynn/stats"
 )
@@ -66,19 +71,21 @@ func New() *Plugin {
 }
 
 // calculateStats calaculates the descriptive statistics for buff
-func (p *Plugin) calculateStats(buff interface{}) (map[string][]float64, error) {
-	result := make(map[string][]float64)
-
+func (p *Plugin) calculateStats(buff interface{}, startTime time.Time, stopTime time.Time, namespace string, unit string) ([]plugin.MetricType, error) {
+	var result []plugin.MetricType
 	var buffer []float64
+	tags := map[string]string{
+		"startTime": startTime.String(),
+		"stopTime":  stopTime.String(),
+	}
+	time := time.Now()
 
-	log.Printf("Buff %v", buff)
-
-	var valRange []float64 //stores range values
+	//Need to change so it ranges over the current size of the buffer and not the capacity
 	for _, val := range buff.([]interface{}) {
 		switch v := val.(type) {
 		default:
-			log.Printf("Unknown data received: Type %T", v)
-			return nil, errors.New("Unknown data received: Type")
+			st := fmt.Sprintf("Unknown data received in calculateStats(): Type %T", v)
+			return nil, errors.New(st)
 		case int:
 			buffer = append(buffer, float64(val.(int)))
 		case int32:
@@ -96,140 +103,135 @@ func (p *Plugin) calculateStats(buff interface{}) (map[string][]float64, error) 
 		}
 	}
 
-	log.Printf("Buffer %v", buffer)
+	statList := [...]string{"Count", "Mean", "Median", "Standard Deviation", "Variance", "95%-ile", "99%-ile", "Minimum", "Maximum", "Range", "Mode", "Kurtosis", "Skewness", "Sum", "Trimean"}
 
-	result["Count"] = []float64{float64(len(buffer))}
+	mean, meanErr := stats.Mean(buffer)
+	stdev, stdevErr := stats.StandardDeviation(buffer)
+	min, minErr := stats.Min(buffer)
+	max, maxErr := stats.Max(buffer)
 
-	val, err := stats.Mean(buffer)
+	var err error
+	var val float64
+	var modeVal []float64
+
+	for _, stat := range statList {
+		switch stat {
+		case "Count":
+			val = float64(len(buffer))
+		case "Mean":
+			val, err = mean, meanErr
+		case "Median":
+			val, err = stats.Median(buffer)
+		case "Standard Deviation":
+			val, err = stdev, stdevErr
+		case "Variance":
+			val, err = stats.Variance(buffer)
+		case "95%-ile":
+			val, err = stats.Percentile(buffer, 95)
+		case "99%-ile":
+			val, err = stats.Percentile(buffer, 99)
+		case "Minimum":
+			val, err = min, minErr
+		case "Maximum":
+			val, err = max, maxErr
+		case "Range":
+			val = max - min
+		case "Mode":
+			modeVal, err = stats.Mode(buffer)
+		case "Kurtosis":
+			val, err = p.Kurtosis(buffer)
+		case "Skewness":
+			val, err = p.Skewness(buffer)
+		case "Sum":
+			val, err = stats.Sum(buffer)
+		case "Trimean":
+			val, err = stats.Trimean(buffer)
+		default:
+			st := fmt.Sprintf("Unknown statistic received %T:", stat)
+			log.Warnf(st)
+			err = errors.New(st)
+		}
+
+		if err != nil {
+			log.Warnf("Error in %T", stat)
+		}
+
+		metric := plugin.MetricType{
+			Data_:               val,
+			Namespace_:          core.NewNamespace(namespace, stat),
+			Timestamp_:          time,
+			LastAdvertisedTime_: time,
+			Unit_:               unit,
+			Tags_:               tags,
+		}
+
+		if stat == "Mode" {
+			metric.Data_ = modeVal
+		}
+
+		result = append(result, metric)
+
+	}
+	return result, err
+}
+
+//Calaculates the mean and standard deviation of a float64 array.
+func (p *Plugin) MeanStdDev(buffer []float64) (float64, float64, error) {
+	mean, err := stats.Mean(buffer)
 	if err != nil {
-		return nil, err
+		log.Warn(err)
+		return math.NaN(), math.NaN(), err
 	}
 
-	result["mean"] = []float64{val}
-
-	val, err = stats.Median(buffer)
+	stdev, err := stats.StandardDeviation(buffer)
 	if err != nil {
-		return nil, err
+		log.Warn(err)
+		return mean, math.NaN(), err
 	}
 
-	result["median"] = []float64{val}
-
-	val, err = stats.StandardDeviation(buffer)
-	if err != nil {
-		return nil, err
-	}
-
-	result["stddev"] = []float64{val}
-
-	val, err = stats.Variance(buffer)
-	if err != nil {
-		return nil, err
-	}
-
-	result["var"] = []float64{val}
-
-	val, err = stats.Percentile(buffer, 95)
-	if err != nil {
-		return nil, err
-	}
-
-	result["95%-ile"] = []float64{val}
-
-	val, err = stats.Percentile(buffer, 99)
-	if err != nil {
-		return nil, err
-	}
-
-	result["99%-ile"] = []float64{val}
-
-	val, err = stats.Min(buffer)
-	if err != nil {
-		return nil, err
-	}
-
-	result["Minimum"] = []float64{val}
-	valRange = append(valRange, val)
-
-	val, err = stats.Max(buffer)
-	if err != nil {
-		return nil, err
-	}
-
-	result["Maximum"] = []float64{val}
-	valRange = append(valRange, val)
-
-	result["Range"] = valRange
-
-	var valArr []float64
-	valArr, err = stats.Mode(buffer)
-	if err != nil {
-		return nil, err
-	}
-
-	result["Mode"] = valArr
-
-	val, err = stats.Sum(buffer)
-	if err != nil {
-		return nil, err
-	}
-
-	result["Kurtosis"] = p.Kurtosis(buffer)
-	result["Skewness"] = p.Skewness(buffer)
-
-	result["Sum"] = []float64{val}
-
-	val, err = stats.Trimean(buffer)
-	if err != nil {
-		return nil, err
-	}
-
-	result["Trimean"] = []float64{val}
-	return result, nil
+	return mean, stdev, nil
 }
 
 //Calculates the population skewness from buffer
-func (p *Plugin) Skewness(buffer []float64) []float64 {
+func (p *Plugin) Skewness(buffer []float64) (float64, error) {
 	if len(buffer) == 0 {
 		log.Printf("Buffer does not contain any data.")
-		return []float64{}
+		return math.NaN(), errors.New("Buffer doesn't contain any data")
 	}
-	var num float64
-	var den float64
-	var mean float64
+	var skew float64
+	mean, stdev, err := p.MeanStdDev(buffer)
 
-	mean, err := stats.Mean(buffer)
 	if err != nil {
 		log.Fatal(err)
-	}
-	for _, val := range buffer {
-		num += math.Pow(val-mean, 3)
-		den += math.Pow(val-mean, 2)
+		return math.NaN(), err
 	}
 
-	return []float64{math.Sqrt(float64(len(buffer))) * num / math.Pow(den, 3/2)}
+	for _, val := range buffer {
+		skew += math.Pow((val-mean)/stdev, 3)
+	}
+
+	return float64(1 / float64(len(buffer)) * skew), nil
 
 }
 
 //Calculates the population kurtosis from buffer
-func (p *Plugin) Kurtosis(buffer []float64) []float64 {
+func (p *Plugin) Kurtosis(buffer []float64) (float64, error) {
 	if len(buffer) == 0 {
 		log.Printf("Buffer does not contain any data.")
-		return []float64{}
+		return math.NaN(), errors.New("Buffer doesn't contain any data")
 	}
-	var num float64
-	var den float64
-	var mean float64
+	var kurt float64
 
-	mean, err := stats.Mean(buffer)
+	mean, stdev, err := p.MeanStdDev(buffer)
 	if err != nil {
 		log.Fatal(err)
+		return math.NaN(), err
 	}
 
 	for _, val := range buffer {
-		num += math.Pow(val-mean, 4)
-		den += math.Pow(val-mean, 2)
+		kurt += math.Pow((val-mean)/stdev, 4)
 	}
-	return []float64{float64(len(buffer)) * num / math.Pow(den, 2)}
+	return float64(1 / float64(len(buffer)) * kurt), nil
 }
 
 // concatNameSpace combines an array of namespces into a single string
@@ -242,12 +244,10 @@ func concatNameSpace(namespace []string) string {
 func (p *Plugin) insertInToBuffer(val interface{}, ns []string) {
 
 	if p.bufferCurSize == 0 {
-		log.Printf("In if statement with buffer max size %v", p.bufferMaxSize)
 		var buff = make([]interface{}, p.bufferMaxSize)
 		buff[0] = val
 		p.buffer[concatNameSpace(ns)] = buff
 	} else {
-		log.Printf("In else statement with index %v", p.bufferIndex)
 		p.buffer[concatNameSpace(ns)][p.bufferIndex] = val
 	}
 }
@@ -280,56 +280,107 @@ func (p *Plugin) GetConfigPolicy() (*cpolicy.ConfigPolicy, error) {
 	cp.Add([]string{""}, config)
 
 	return cp, nil
+
+}
+
+type byTimestamp []plugin.MetricType
+
+func (sa byTimestamp) Len() int {
+	return len(sa)
+}
+
+func (sa byTimestamp) Less(i, j int) bool {
+	return sa[i].Timestamp().Before(sa[j].Timestamp())
+
+}
+func (sa byTimestamp) Swap(i, j int) {
+	sa[i], sa[j] = sa[j], sa[i]
+}
+
+func (p *Plugin) insertInToTimeBuffer(metric plugin.MetricType, times []time.Time) []time.Time {
+	times[p.bufferIndex] = metric.Timestamp()
+	return times
+}
+
+func (p *Plugin) getTimes(times []time.Time) (time.Time, time.Time) {
+	if p.bufferCurSize == p.bufferMaxSize && p.bufferIndex != p.bufferMaxSize-1 {
+		return times[p.bufferIndex+1], times[p.bufferIndex]
+	}
+	return times[0], times[p.bufferIndex]
 }
 
 // Process processes the data, inputs the data into this' buffer and calls the descriptive statistics method
 func (p *Plugin) Process(contentType string, content []byte, config map[string]ctypes.ConfigValue) (string, []byte, error) {
-	var metrics []plugin.MetricType
+	f, err := os.OpenFile("/tmp/staisticErr.txt", os.O_WRONLY|os.O_CREATE, 0755)
+	if err != nil {
+		log.Warn("File reading error.")
+	}
 
+	log.SetOutput(f)
+
+	var metrics []plugin.MetricType
+	p.bufferMaxSize = 100
 	if config != nil {
 		if config["SlidingWindowLength"].(ctypes.ConfigValueInt).Value > 0 {
 			p.bufferMaxSize = config["SlidingWindowLength"].(ctypes.ConfigValueInt).Value
-		} else {
-			p.bufferMaxSize = 100
 		}
-	} else {
-		p.bufferMaxSize = 100
 	}
-
 	//Decodes the content into PluginMetricType
 	dec := gob.NewDecoder(bytes.NewBuffer(content))
 	if err := dec.Decode(&metrics); err != nil {
 		log.Printf("Error decoding: error=%v content=%v", err, content)
 		return "", nil, err
 	}
+	var results []plugin.MetricType
+	times := make([]time.Time, p.bufferMaxSize)
 
+	metricNamespace := make(map[string][]plugin.MetricType)
 	for _, metric := range metrics {
-		log.Printf("Data received %v", metric.Data())
-		p.insertInToBuffer(metric.Data(), metric.Namespace().Strings())
+		//Populates the metricNamespace map so that the statistics are ran on metrics that share the same namespace.
+		ns := concatNameSpace(metric.Namespace().Strings())
+		if plugins, ok := metricNamespace[ns]; ok {
+			plugins = append(plugins, metric)
+			metricNamespace[ns] = plugins
+		} else {
+			metricNamespace[ns] = []plugin.MetricType{metric}
+		}
 	}
 
-	p.updateCounters()
+	for k, v := range metricNamespace {
+		var startTime time.Time
+		var stopTime time.Time
+		unit := v[0].Unit()
 
-	for _, metric := range metrics {
-		var err error
-		if p.bufferCurSize < p.bufferMaxSize {
-			metric.Data_, err = p.calculateStats(p.buffer[concatNameSpace(metric.Namespace().Strings())][0:p.bufferCurSize])
-			if err != nil {
-				return "", nil, err
+		sort.Sort(byTimestamp(v))
+		for _, metric := range v {
+
+			p.insertInToBuffer(metric.Data(), metric.Namespace().Strings())
+			times = p.insertInToTimeBuffer(metric, times)
+			startTime, stopTime = p.getTimes(times)
+			p.updateCounters()
+
+			if p.bufferCurSize < p.bufferMaxSize {
+				log.Printf("Buffer: %v", p.buffer[k])
+				stats, err := p.calculateStats(p.buffer[k][0:p.bufferCurSize], startTime, stopTime, k, unit)
+				if err != nil {
+					log.Printf("Error occured in calculating Statistics: %s", err)
+					return "", nil, err
+				}
+				results = append(results, stats...)
+			} else if p.bufferCurSize == p.bufferMaxSize {
+				log.Printf("Buffer: %v", p.buffer[k])
+				stats, err := p.calculateStats(p.buffer[k], startTime, stopTime, k, unit)
+				if err != nil {
+					log.Printf("Error occured in calculating Statistics: %s", err)
+					return "", nil, err
+				}
+				results = append(results, stats...)
 			}
 		}
-		metric.Data_, err = p.calculateStats(p.buffer[concatNameSpace(metric.Namespace().Strings())])
-		if err != nil {
-			return "", nil, err
-		}
-
-		log.Printf("Statistics %v", metric.Data())
 	}
-
-	gob.Register(map[string]float64{})
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
-	if err := enc.Encode(metrics); err != nil {
+	if err := enc.Encode(results); err != nil {
 		return "", nil, err
 	}
 
