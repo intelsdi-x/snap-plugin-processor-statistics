@@ -46,8 +46,8 @@ const (
 type Plugin struct {
 	buffer        map[string][]interface{}
 	bufferMaxSize int
-	bufferCurSize int
-	bufferIndex   int
+	bufferCurSize map[string]int
+	bufferIndex   map[string]int
 }
 
 // Meta returns a plugin meta data
@@ -63,10 +63,12 @@ func Meta() *plugin.PluginMeta {
 // New() returns a new instance of this
 func New() *Plugin {
 	buffer := make(map[string][]interface{})
+	curSize := make(map[string]int)
+	bufIdx := make(map[string]int)
 	p := &Plugin{buffer: buffer,
 		bufferMaxSize: 100,
-		bufferCurSize: 0,
-		bufferIndex:   0}
+		bufferCurSize: curSize,
+		bufferIndex:   bufIdx}
 	return p
 }
 
@@ -148,12 +150,17 @@ func (p *Plugin) calculateStats(buff interface{}, startTime time.Time, stopTime 
 			val, err = stats.Trimean(buffer)
 		default:
 			st := fmt.Sprintf("Unknown statistic received %T:", stat)
+			log.Printf(st)
 			log.Warnf(st)
 			err = errors.New(st)
 		}
 
 		if err != nil {
 			log.Warnf("Error in %T", stat)
+		}
+
+		if math.IsNaN(val) {
+			val = 0
 		}
 
 		metric := plugin.MetricType{
@@ -180,13 +187,13 @@ func (p *Plugin) MeanStdDev(buffer []float64) (float64, float64, error) {
 	mean, err := stats.Mean(buffer)
 	if err != nil {
 		log.Warn(err)
-		return math.NaN(), math.NaN(), err
+		return 0, 0, err
 	}
 
 	stdev, err := stats.StandardDeviation(buffer)
 	if err != nil {
 		log.Warn(err)
-		return mean, math.NaN(), err
+		return mean, 0, err
 	}
 
 	return mean, stdev, nil
@@ -196,14 +203,14 @@ func (p *Plugin) MeanStdDev(buffer []float64) (float64, float64, error) {
 func (p *Plugin) Skewness(buffer []float64) (float64, error) {
 	if len(buffer) == 0 {
 		log.Printf("Buffer does not contain any data.")
-		return math.NaN(), errors.New("Buffer doesn't contain any data")
+		return 0, errors.New("Buffer doesn't contain any data")
 	}
 	var skew float64
 	mean, stdev, err := p.MeanStdDev(buffer)
 
 	if err != nil {
 		log.Fatal(err)
-		return math.NaN(), err
+		return 0, err
 	}
 
 	for _, val := range buffer {
@@ -218,14 +225,14 @@ func (p *Plugin) Skewness(buffer []float64) (float64, error) {
 func (p *Plugin) Kurtosis(buffer []float64) (float64, error) {
 	if len(buffer) == 0 {
 		log.Printf("Buffer does not contain any data.")
-		return math.NaN(), errors.New("Buffer doesn't contain any data")
+		return 0, errors.New("Buffer doesn't contain any data")
 	}
 	var kurt float64
 
 	mean, stdev, err := p.MeanStdDev(buffer)
 	if err != nil {
 		log.Fatal(err)
-		return math.NaN(), err
+		return 0, err
 	}
 
 	for _, val := range buffer {
@@ -241,27 +248,26 @@ func concatNameSpace(namespace []string) string {
 }
 
 // insertInToBuffer adds a new value into this' buffer object
-func (p *Plugin) insertInToBuffer(val interface{}, ns []string) {
-
-	if p.bufferCurSize == 0 {
+func (p *Plugin) insertInToBuffer(val interface{}, ns string) {
+	if p.bufferCurSize[ns] == 0 {
 		var buff = make([]interface{}, p.bufferMaxSize)
 		buff[0] = val
-		p.buffer[concatNameSpace(ns)] = buff
+		p.buffer[ns] = buff
 	} else {
-		p.buffer[concatNameSpace(ns)][p.bufferIndex] = val
+		p.buffer[ns][p.bufferIndex[ns]] = val
 	}
 }
 
 // updateCounters updates the meta informaiton (current size and index) of this' buffer object
-func (p *Plugin) updateCounters() {
-	if p.bufferCurSize < p.bufferMaxSize {
-		p.bufferCurSize++
+func (p *Plugin) updateCounters(ns string) {
+	if p.bufferCurSize[ns] < p.bufferMaxSize {
+		p.bufferCurSize[ns]++
 	}
 
-	if p.bufferIndex == p.bufferMaxSize-1 {
-		p.bufferIndex = 0
+	if p.bufferIndex[ns] == p.bufferMaxSize-1 {
+		p.bufferIndex[ns] = 0
 	} else {
-		p.bufferIndex++
+		p.bufferIndex[ns]++
 	}
 }
 
@@ -297,16 +303,16 @@ func (sa byTimestamp) Swap(i, j int) {
 	sa[i], sa[j] = sa[j], sa[i]
 }
 
-func (p *Plugin) insertInToTimeBuffer(metric plugin.MetricType, times []time.Time) []time.Time {
-	times[p.bufferIndex] = metric.Timestamp()
+func (p *Plugin) insertInToTimeBuffer(metric plugin.MetricType, times []time.Time, ns string) []time.Time {
+	times[p.bufferIndex[ns]] = metric.Timestamp()
 	return times
 }
 
-func (p *Plugin) getTimes(times []time.Time) (time.Time, time.Time) {
-	if p.bufferCurSize == p.bufferMaxSize && p.bufferIndex != p.bufferMaxSize-1 {
-		return times[p.bufferIndex+1], times[p.bufferIndex]
+func (p *Plugin) getTimes(times []time.Time, ns string) (time.Time, time.Time) {
+	if p.bufferCurSize[ns] == p.bufferMaxSize && p.bufferIndex[ns] != p.bufferMaxSize-1 {
+		return times[p.bufferIndex[ns]+1], times[p.bufferIndex[ns]]
 	}
-	return times[0], times[p.bufferIndex]
+	return times[0], times[p.bufferIndex[ns]]
 }
 
 // Process processes the data, inputs the data into this' buffer and calls the descriptive statistics method
@@ -350,25 +356,21 @@ func (p *Plugin) Process(contentType string, content []byte, config map[string]c
 		var startTime time.Time
 		var stopTime time.Time
 		unit := v[0].Unit()
-
 		sort.Sort(byTimestamp(v))
 		for _, metric := range v {
 
-			p.insertInToBuffer(metric.Data(), metric.Namespace().Strings())
-			times = p.insertInToTimeBuffer(metric, times)
-			startTime, stopTime = p.getTimes(times)
-			p.updateCounters()
-
-			if p.bufferCurSize < p.bufferMaxSize {
-				log.Printf("Buffer: %v", p.buffer[k])
-				stats, err := p.calculateStats(p.buffer[k][0:p.bufferCurSize], startTime, stopTime, k, unit)
+			p.insertInToBuffer(metric.Data(), k)
+			times = p.insertInToTimeBuffer(metric, times, k)
+			startTime, stopTime = p.getTimes(times, k)
+			p.updateCounters(k)
+			if p.bufferCurSize[k] < p.bufferMaxSize {
+				stats, err := p.calculateStats(p.buffer[k][0:p.bufferCurSize[k]], startTime, stopTime, k, unit)
 				if err != nil {
 					log.Printf("Error occured in calculating Statistics: %s", err)
 					return "", nil, err
 				}
 				results = append(results, stats...)
-			} else if p.bufferCurSize == p.bufferMaxSize {
-				log.Printf("Buffer: %v", p.buffer[k])
+			} else if p.bufferCurSize[k] == p.bufferMaxSize {
 				stats, err := p.calculateStats(p.buffer[k], startTime, stopTime, k, unit)
 				if err != nil {
 					log.Printf("Error occured in calculating Statistics: %s", err)
