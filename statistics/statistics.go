@@ -150,7 +150,6 @@ func (p *Plugin) calculateStats(buff interface{}, startTime time.Time, stopTime 
 			val, err = stats.Trimean(buffer)
 		default:
 			st := fmt.Sprintf("Unknown statistic received %T:", stat)
-			log.Printf(st)
 			log.Warnf(st)
 			err = errors.New(st)
 		}
