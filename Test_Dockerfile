@@ -1,0 +1,4 @@
+FROM intelsdi/snap:alpine
+ADD http://snap.ci.snap-telemetry.io/plugins/snap-plugin-publisher-file/latest_build/linux/x86_64/snap-plugin-publisher-file /tmp/snap-plugin-publisher-file
+ADD http://snap.ci.snap-telemetry.io/plugins/snap-plugin-collector-psutil/latest/linux/x86_64/snap-plugin-collector-psutil /tmp/snap-plugin-collector-psutil
+COPY ./build/linux/x86_64/snap-plugin-processor-statistics /tmp/snap-plugin-processor-statistics

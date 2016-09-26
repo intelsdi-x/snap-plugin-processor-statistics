@@ -1,0 +1,39 @@
+{
+    "max-failures": 10,
+    "schedule": {
+        "interval": "1s",
+        "type": "simple"
+    },
+    "version": 1,
+    "workflow": {
+        "collect": {
+            "config": {},
+            "metrics": {
+                "/intel/psutil/load/load1": {},
+                "/intel/psutil/load/load15": {},
+                "/intel/psutil/load/load5": {},
+                "/intel/psutil/vm/available": {},
+                "/intel/psutil/vm/free": {},
+                "/intel/psutil/vm/used": {}
+            },
+            "process": [
+                {
+                    "config": {
+                        "SlidingWindowLength": 5
+                    },
+                    "plugin_name": "statistics",
+                    "process": null,
+                    "publish": [
+                        {
+                            "config": {
+                                "file": "/tmp/snap_published_file.json"
+                            },
+                            "plugin_name": "file"
+                        }
+                    ]
+                }
+            ],
+       	    "publish": null
+       	}
+    }
+}

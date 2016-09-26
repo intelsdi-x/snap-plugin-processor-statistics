@@ -1,0 +1,9 @@
+version: '2'
+services:
+        main:
+                container_name: statistics_large_test
+                image: intelsdi/snap:alpine
+                environment:
+                        - SNAP_VERSION=latest
+                volumes:
+                        - ${PLUGIN_SRC}:/snap-plugin-processor-statistics
