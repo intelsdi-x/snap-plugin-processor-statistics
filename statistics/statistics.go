@@ -285,7 +285,6 @@ func (p *Plugin) GetConfigPolicy() (*cpolicy.ConfigPolicy, error) {
 	cp.Add([]string{""}, config)
 
 	return cp, nil
-
 }
 
 type byTimestamp []plugin.MetricType
@@ -357,7 +356,6 @@ func (p *Plugin) Process(contentType string, content []byte, config map[string]c
 		unit := v[0].Unit()
 		sort.Sort(byTimestamp(v))
 		for _, metric := range v {
-
 			p.insertInToBuffer(metric.Data(), k)
 			times = p.insertInToTimeBuffer(metric, times, k)
 			startTime, stopTime = p.getTimes(times, k)
