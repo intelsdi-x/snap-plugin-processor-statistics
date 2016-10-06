@@ -1,0 +1,9 @@
+name: processor
+type: statistics
+maintainer: core
+license: Apache-2.0
+description: "Process metrics and return statistics over sliding window."
+badge:
+  - "[![Build Status](https://travis-ci.org/intelsdi-x/snap-plugin-processor-statistics.svg?branch=master)](https://travis-ci.org/intelsdi-x/snap-plugin-processor-statistics)"
+ci:
+  - https://travis-ci.org/intelsdi-x/snap-plugin-processor-statistics
