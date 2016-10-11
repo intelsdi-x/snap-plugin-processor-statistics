@@ -1,5 +1,5 @@
-name: processor
-type: statistics
+name: statistics
+type: processor
 maintainer: core
 license: Apache-2.0
 description: "Process metrics and return statistics over sliding window."
