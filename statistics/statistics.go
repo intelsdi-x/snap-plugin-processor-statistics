@@ -44,10 +44,10 @@ const (
 )
 
 type Plugin struct {
-	buffer        map[string][]interface{}
-	bufferMaxSize int
-	bufferCurSize map[string]int
-	bufferIndexMap   map[string]int
+	buffer         map[string][]interface{}
+	bufferMaxSize  int
+	bufferCurSize  map[string]int
+	bufferIndexMap map[string]int
 }
 
 // Meta returns a plugin meta data
@@ -176,7 +176,6 @@ func (p *Plugin) calculateStats(buff interface{}, startTime time.Time, stopTime 
 		}
 
 		result = append(result, metric)
-
 	}
 	return result, err
 }
