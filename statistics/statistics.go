@@ -68,7 +68,7 @@ func New() *Plugin {
 	p := &Plugin{buffer: buffer,
 		bufferMaxSize: 100,
 		bufferCurSize: curSize,
-		bufferIndexMap:   bufIdx}
+		bufferIndexMap: bufIdx}
 	return p
 }
 
