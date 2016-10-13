@@ -47,7 +47,7 @@ type Plugin struct {
 	buffer        map[string][]interface{}
 	bufferMaxSize int
 	bufferCurSize map[string]int
-	bufferIndex   map[string]int
+	bufferIndexMap   map[string]int
 }
 
 // Meta returns a plugin meta data
@@ -68,7 +68,7 @@ func New() *Plugin {
 	p := &Plugin{buffer: buffer,
 		bufferMaxSize: 100,
 		bufferCurSize: curSize,
-		bufferIndex:   bufIdx}
+		bufferIndexMap:   bufIdx}
 	return p
 }
 
@@ -253,7 +253,7 @@ func (p *Plugin) insertInToBuffer(val interface{}, ns string) {
 		buff[0] = val
 		p.buffer[ns] = buff
 	} else {
-		p.buffer[ns][p.bufferIndex[ns]] = val
+		p.buffer[ns][p.bufferIndexMap[ns]] = val
 	}
 }
 
@@ -263,10 +263,10 @@ func (p *Plugin) updateCounters(ns string) {
 		p.bufferCurSize[ns]++
 	}
 
-	if p.bufferIndex[ns] == p.bufferMaxSize-1 {
-		p.bufferIndex[ns] = 0
+	if p.bufferIndexMap[ns] == p.bufferMaxSize-1 {
+		p.bufferIndexMap[ns] = 0
 	} else {
-		p.bufferIndex[ns]++
+		p.bufferIndexMap[ns]++
 	}
 }
 
@@ -302,15 +302,15 @@ func (sa byTimestamp) Swap(i, j int) {
 }
 
 func (p *Plugin) insertInToTimeBuffer(metric plugin.MetricType, times []time.Time, ns string) []time.Time {
-	times[p.bufferIndex[ns]] = metric.Timestamp()
+	times[p.bufferIndexMap[ns]] = metric.Timestamp()
 	return times
 }
 
 func (p *Plugin) getTimes(times []time.Time, ns string) (time.Time, time.Time) {
-	if p.bufferCurSize[ns] == p.bufferMaxSize && p.bufferIndex[ns] != p.bufferMaxSize-1 {
-		return times[p.bufferIndex[ns]+1], times[p.bufferIndex[ns]]
+	if p.bufferCurSize[ns] == p.bufferMaxSize && p.bufferIndexMap[ns] != p.bufferMaxSize-1 {
+		return times[p.bufferIndexMap[ns]+1], times[p.bufferIndexMap[ns]]
 	}
-	return times[0], times[p.bufferIndex[ns]]
+	return times[0], times[p.bufferIndexMap[ns]]
 }
 
 // Process processes the data, inputs the data into this' buffer and calls the descriptive statistics method
