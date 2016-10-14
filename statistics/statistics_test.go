@@ -4,7 +4,7 @@
 /*
 http://www.apache.org/licenses/LICENSE-2.0.txt
 
-Copyright 2015 Intel Corporation
+Copyright 2016 Intel Corporation
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,37 +22,23 @@ limitations under the License.
 package statistics
 
 import (
-	"bytes"
-	"encoding/gob"
 	"log"
 	"math"
-	"math/rand"
+	"reflect"
 	"testing"
 	"time"
 
-	"github.com/intelsdi-x/snap/control/plugin"
-	"github.com/intelsdi-x/snap/control/plugin/cpolicy"
-	"github.com/intelsdi-x/snap/core"
-	"github.com/intelsdi-x/snap/core/ctypes"
+	"github.com/intelsdi-x/snap-plugin-lib-go/v1/plugin"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-//Random number generator
-func randInt(min int, max int) int {
-	return min + rand.Intn(max-min)
-}
-
 func TestStatisticsProcessor(t *testing.T) {
-	meta := Meta()
 	Convey("Meta should return metadata for the plugin", t, func() {
-		Convey("So meta.Name should equal statistics", func() {
-			So(meta.Name, ShouldEqual, "statistics")
+		Convey("So Name should equal statistics", func() {
+			So(Name, ShouldEqual, "statistics")
 		})
-		Convey("So meta.Version should equal version", func() {
-			So(meta.Version, ShouldEqual, version)
-		})
-		Convey("So meta.Type should be of type plugin.ProcessorPluginType", func() {
-			So(meta.Type, ShouldResemble, plugin.ProcessorPluginType)
+		Convey("So Version should equal version", func() {
+			So(Version, ShouldEqual, Version)
 		})
 	})
 
@@ -65,18 +51,12 @@ func TestStatisticsProcessor(t *testing.T) {
 			So(proc, ShouldHaveSameTypeAs, &Plugin{})
 		})
 		Convey("proc.GetConfigPolicy should return a config policy", func() {
-			configPolicy, _ := proc.GetConfigPolicy()
-			Convey("So config policy should be a cpolicy.ConfigPolicy", func() {
-				So(configPolicy, ShouldHaveSameTypeAs, &cpolicy.ConfigPolicy{})
+			configPolicy, err := proc.GetConfigPolicy()
+			Convey("So config policy should be a plugin.ConfigPolicy", func() {
+				So(configPolicy, ShouldHaveSameTypeAs, plugin.ConfigPolicy{})
 			})
-			testConfig := make(map[string]ctypes.ConfigValue)
-			testConfig["SlidingWindowLength"] = ctypes.ConfigValueInt{Value: 23}
-			cfg, errs := configPolicy.Get([]string{""}).Process(testConfig)
-			Convey("So config policy should process testConfig and return a config", func() {
-				So(cfg, ShouldNotBeNil)
-			})
-			Convey("So testConfig processing should return no errors", func() {
-				So(errs.HasErrors(), ShouldBeFalse)
+			Convey("So err should be nil", func() {
+				So(err, ShouldBeNil)
 			})
 		})
 	})
@@ -84,7 +64,7 @@ func TestStatisticsProcessor(t *testing.T) {
 
 func TestStatisticsProcessorMetrics(t *testing.T) {
 	Convey("Statistics Processor tests", t, func() {
-		metrics := make([]plugin.MetricType, 10)
+		metrics := make([]plugin.Metric, 10)
 		data := [10]float64{5, 12, 7, 9, 33, 53, 24, 16, 18, 1}
 
 		time := [10]time.Time{time.Now().Add(12 * time.Hour),
@@ -98,41 +78,52 @@ func TestStatisticsProcessorMetrics(t *testing.T) {
 			time.Now().Add(6 * time.Hour),
 			time.Now().Add(7 * time.Hour),
 		}
-		config := make(map[string]ctypes.ConfigValue)
-		config["SlidingWindowLength"] = ctypes.ConfigValueInt{Value: 5}
+		config := plugin.Config{}
+		config["SlidingWindowLength"] = int64(5)
 
-		empty := []float64(nil)
+		empty := []float64{}
 
 		Convey("Statistics for float64 data", func() {
 			for i := range metrics {
-				metrics[i] = plugin.MetricType{
-					Data_:      data[i],
-					Namespace_: core.NewNamespace("foo", "bar"),
-					Timestamp_: time[i],
+				metrics[i] = plugin.Metric{
+					Data:      data[i],
+					Namespace: plugin.NewNamespace("foo", "bar"),
+					Timestamp: time[i],
 				}
 			}
 
-			var buf bytes.Buffer
-			enc := gob.NewEncoder(&buf)
-			enc.Encode(metrics)
-
 			statisticsObj := New()
-			_, stats, err := statisticsObj.Process("snap.gob", buf.Bytes(), config)
+			stats, err := statisticsObj.Process(metrics, config)
 
 			if err != nil {
 				log.Fatal(err)
 			}
 
-			var results []plugin.MetricType
-			dec := gob.NewDecoder(bytes.NewBuffer(stats))
-			err = dec.Decode(&results)
-
-			if err != nil {
-				log.Fatal("decode", err)
-			}
-
 			modes := [][]float64{[]float64{33}, empty, empty, empty, empty, empty, empty, empty, empty, empty}
 
+			fiveNumberSummaries := [][]float64{[]float64{33, math.NaN(), 33, math.NaN(), 33},
+				[]float64{33, 33, 43, 53, 53},
+				[]float64{24, 24, 33, 53, 53},
+				[]float64{16, 20, 28.5, 43, 53},
+				[]float64{16, 17, 24, 43, 53},
+				[]float64{1, 8.5, 18, 38.5, 53},
+				[]float64{1, 4, 16, 21, 24},
+				[]float64{1, 4, 9, 17, 18},
+				[]float64{1, 3, 7, 13.5, 18},
+				[]float64{1, 3, 7, 10.5, 12},
+			}
+
+			sevenNumberSummaries := [][]float64{[]float64{33, 33, 33, 33, 33, 33, 33},
+				[]float64{33, 33, 33, 43, 53, 53, 53},
+				[]float64{24, 24, 24, 33, 53, 53, 53},
+				[]float64{16, 16, 16, 28.5, 33, 53, 53},
+				[]float64{16, 16, 18, 24, 33, 53, 53},
+				[]float64{1, 1, 16, 18, 24, 53, 53},
+				[]float64{1, 1, 7, 16, 18, 24, 24},
+				[]float64{1, 1, 7, 9, 16, 18, 18},
+				[]float64{1, 1, 5, 7, 9, 18, 18},
+				[]float64{1, 1, 5, 7, 9, 12, 12},
+			}
 			expected := make(map[string][]float64)
 			expected["Count"] = []float64{1, 2, 3, 4, 5, 5, 5, 5, 5, 5}
 			expected["Mean"] = []float64{33, 43, 36.66666667, 31.5, 28.8, 22.4, 13.2, 10.2, 8, 6.8}
@@ -148,69 +139,100 @@ func TestStatisticsProcessorMetrics(t *testing.T) {
 			expected["Skewness"] = []float64{math.NaN(), math.NaN(), 0.426, 0.552, 0.883, 0.744, -0.242, -0.122, 0.696, -0.195}
 			expected["Trimean"] = []float64{math.NaN(), math.NaN(), 35.75, 30, 27, 20.75, 14.25, 9.75, 7.625, 6.875}
 			expected["Range"] = []float64{0, 20, 29, 37, 37, 52, 23, 17, 17, 11}
+			expected["Quartile_Range"] = []float64{math.NaN(), 20, 29, 23, 26, 30, 17, 13, 10.5, 7.5}
 
 			//Tracks current location of results
 			count := 0
-			for i, m := range results {
+			for i, m := range stats {
 				//Captures the statistic being processed while ignoring the remaining portions of the namespace
-				ns := m.Namespace().Strings()[1]
+				ns := m.Namespace.Strings()[1]
 
-				//If all 15 statistics have been compared, then increase metric count
-				if i%15 == 0 && i != 0 {
+				//If all 18 statistics have been compared, then increase metric count
+				if i%18 == 0 && i != 0 {
 					count++
 				}
 
 				switch ns {
 				case "Count":
-					So(m.Data(), ShouldAlmostEqual, expected["Count"][count], 0.01)
+					So(m.Data, ShouldAlmostEqual, expected["Count"][count], 0.01)
 				case "Mean":
-					So(m.Data(), ShouldAlmostEqual, expected["Mean"][count], 0.01)
+					So(m.Data, ShouldAlmostEqual, expected["Mean"][count], 0.01)
 				case "Median":
-					So(m.Data(), ShouldAlmostEqual, expected["Median"][count], 0.01)
+					So(m.Data, ShouldAlmostEqual, expected["Median"][count], 0.01)
 				case "Trimean":
 					if math.IsNaN(expected["Trimean"][count]) {
-						So(m.Data(), ShouldNotBeNil)
+						So(m.Data, ShouldNotBeNil)
 					} else {
 
-						So(m.Data(), ShouldAlmostEqual, expected["Trimean"][count], 0.01)
+						So(m.Data, ShouldAlmostEqual, expected["Trimean"][count], 0.01)
 					}
 				case "Range":
-					So(m.Data(), ShouldAlmostEqual, expected["Range"][count], 0.01)
+					So(m.Data, ShouldAlmostEqual, expected["Range"][count], 0.01)
 				case "Sum":
-					So(m.Data(), ShouldAlmostEqual, expected["Sum"][count], 0.01)
+					So(m.Data, ShouldAlmostEqual, expected["Sum"][count], 0.01)
 				case "Kurtosis":
 					if math.IsNaN(expected["Kurtosis"][count]) {
-						So(m.Data(), ShouldNotBeNil)
+						So(m.Data, ShouldNotBeNil)
 					} else {
-						So(m.Data(), ShouldAlmostEqual, expected["Kurtosis"][count], 0.01)
+						So(m.Data, ShouldAlmostEqual, expected["Kurtosis"][count], 0.01)
 					}
 				case "Skewness":
 					if math.IsNaN(expected["Skewness"][count]) {
-						So(m.Data(), ShouldNotBeNil)
+						So(m.Data, ShouldNotBeNil)
 					} else {
-						So(m.Data(), ShouldAlmostEqual, expected["Skewness"][count], 0.01)
+						So(m.Data, ShouldAlmostEqual, expected["Skewness"][count], 0.01)
 					}
 				case "Standard Deviation":
-					So(m.Data(), ShouldAlmostEqual, expected["Standard Deviation"][count], 0.01)
+					So(m.Data, ShouldAlmostEqual, expected["Standard Deviation"][count], 0.01)
 				case "Variance":
-					So(m.Data(), ShouldAlmostEqual, expected["Variance"][count], 0.01)
+					So(m.Data, ShouldAlmostEqual, expected["Variance"][count], 0.01)
 				case "Maximum":
-					So(m.Data(), ShouldAlmostEqual, expected["Maximum"][count], 0.01)
+					So(m.Data, ShouldAlmostEqual, expected["Maximum"][count], 0.01)
 				case "Minimum":
-					So(m.Data(), ShouldAlmostEqual, expected["Minimum"][count], 0.01)
+					So(m.Data, ShouldAlmostEqual, expected["Minimum"][count], 0.01)
 				case "99%-ile":
-					So(m.Data(), ShouldAlmostEqual, expected["99%-ile"][count], 0.01)
+					So(m.Data, ShouldAlmostEqual, expected["99%-ile"][count], 0.01)
 				case "95%-ile":
-					So(m.Data(), ShouldAlmostEqual, expected["95%-ile"][count], 0.01)
+					So(m.Data, ShouldAlmostEqual, expected["95%-ile"][count], 0.01)
 				case "Mode":
-					So(m.Data(), ShouldResemble, modes[count])
+					So(m.Data, ShouldResemble, modes[count])
+				case "Five_Number_Summary":
+					switch reflect.TypeOf(m.Data).Kind() {
+					case reflect.Slice:
+						sli := reflect.ValueOf(m.Data)
+						for j, v := range fiveNumberSummaries[count] {
+							if math.IsNaN(v) {
+								So(sli.Index(j).Interface(), ShouldNotBeNil)
+							} else {
+								So(sli.Index(j).Interface(), ShouldAlmostEqual, v, 0.01)
+							}
+						}
+					}
+				case "Seven_Number_Summary":
+					switch reflect.TypeOf(m.Data).Kind() {
+					case reflect.Slice:
+						sl := reflect.ValueOf(m.Data)
+						for j, v := range sevenNumberSummaries[count] {
+							if math.IsNaN(v) {
+								So(sl.Index(j).Interface(), ShouldNotBeNil)
+							} else {
+								So(sl.Index(j).Interface(), ShouldAlmostEqual, v, 0.01)
+							}
+						}
+					}
+				case "Quartile_Range":
+					if math.IsNaN(expected["Quartile_Range"][count]) {
+						So(m.Data, ShouldNotBeNil)
+					} else {
+						So(m.Data, ShouldAlmostEqual, expected["Quartile_Range"][count], 0.01)
+					}
 				default:
 					log.Println("Raw metric found")
 					log.Println("Data: %v", ns)
 				}
 			}
 
-			var metricsNew []plugin.MetricType
+			var metricsNew []plugin.Metric
 			So(metrics, ShouldNotResemble, metricsNew)
 		})
 
@@ -218,25 +240,18 @@ func TestStatisticsProcessorMetrics(t *testing.T) {
 			for i := range metrics {
 
 				data := "I am an unknow data Type"
-				metrics[i] = plugin.MetricType{
-					Data_:      data,
-					Namespace_: core.NewNamespace("foo", "bar"),
-					Timestamp_: time[i],
+				metrics[i] = plugin.Metric{
+					Data:      data,
+					Namespace: plugin.NewNamespace("foo", "bar"),
+					Timestamp: time[i],
 				}
 			}
-			var buf bytes.Buffer
-			enc := gob.NewEncoder(&buf)
-			enc.Encode(metrics)
 
+			var metricsNew []plugin.Metric
 			statisticObj := New()
-			_, receivedData, _ := statisticObj.Process("snap.gob", buf.Bytes(), config)
+			receivedData, _ := statisticObj.Process(metricsNew, config)
 
-			var metricsNew []plugin.MetricType
-
-			//Decodes the content into MetricType
-			dec := gob.NewDecoder(bytes.NewBuffer(receivedData))
-			dec.Decode(&metricsNew)
-			So(metrics, ShouldNotResemble, metricsNew)
+			So(metrics, ShouldNotResemble, receivedData)
 		})
 
 	})
