@@ -33,7 +33,7 @@ import (
 
 const (
 	Name    = "statistics"
-	Version = 1
+	Version = 2
 )
 
 type Plugin struct {
@@ -139,7 +139,7 @@ func (p *Plugin) calculateStats(buff interface{}, startTime time.Time, stopTime 
 			sevensummary, err = p.SevenNumberSummary(buffer, median)
 		default:
 			st := fmt.Sprintf("Unknown statistic received %T:", stat)
-			log.Warnf(st)
+			log.Errorf(st)
 			err = errors.New(st)
 		}
 
