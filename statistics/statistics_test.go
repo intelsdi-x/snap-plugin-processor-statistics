@@ -101,27 +101,27 @@ func TestStatisticsProcessorMetrics(t *testing.T) {
 			modes := [][]float64{[]float64{33}, empty, empty, empty, empty, empty, empty, empty, empty, empty}
 
 			expected := make(map[string][]float64)
-			expected["Count"] = []float64{1, 2, 3, 4, 5, 5, 5, 5, 5, 5}
-			expected["Mean"] = []float64{33, 43, 36.66666667, 31.5, 28.8, 22.4, 13.2, 10.2, 8, 6.8}
-			expected["Median"] = []float64{33, 43, 33, 28.5, 24, 18, 16, 9, 7, 7}
-			expected["Sum"] = []float64{33, 86, 110, 126, 144, 112, 66, 51, 40, 34}
-			expected["Standard Deviation"] = []float64{0, 10, 12.120, 13.793, 13.467, 17.072, 8.183, 6.177, 5.657, 3.709}
-			expected["Variance"] = []float64{0, 100, 146.889, 190.25, 181.36, 291.44, 66.96, 38.16, 32, 13.76}
-			expected["Maximum"] = []float64{33, 53, 53, 53, 53, 53, 24, 18, 18, 12}
-			expected["Minimum"] = []float64{33, 33, 24, 16, 16, 1, 1, 1, 1, 1}
-			expected["99%-ile"] = []float64{33, 53, 53, 53, 53, 53, 24, 18, 18, 12}
-			expected["95%-ile"] = []float64{33, 53, 53, 53, 53, 53, 24, 18, 18, 12}
-			expected["2%-ile"] = []float64{33, 33, 24, 16, 16, 1, 1, 1, 1, 1}
-			expected["9%-ile"] = []float64{33, 33, 24, 16, 16, 1, 1, 1, 1, 1}
-			expected["25%-ile"] = []float64{33, 33, 24, 16, 18, 16, 7, 7, 5, 5}
-			expected["75%-ile"] = []float64{33, 53, 53, 33, 33, 24, 18, 16, 9, 9}
-			expected["91%-ile"] = []float64{33, 53, 53, 53, 53, 53, 24, 18, 18, 12}
-			expected["98%-ile"] = []float64{33, 53, 53, 53, 53, 53, 24, 18, 18, 12}
-			expected["Kurtosis"] = []float64{math.NaN(), math.NaN(), math.NaN(), 1.8964, 2.337, 2.563, 1.6874, 1.6624, 2.4383, 2.0035}
-			expected["Skewness"] = []float64{math.NaN(), math.NaN(), 0.426, 0.552, 0.883, 0.744, -0.242, -0.122, 0.696, -0.195}
-			expected["Trimean"] = []float64{math.NaN(), math.NaN(), 35.75, 30, 27, 20.75, 14.25, 9.75, 7.625, 6.875}
-			expected["Range"] = []float64{0, 20, 29, 37, 37, 52, 23, 17, 17, 11}
-			expected["Quartile_Range"] = []float64{math.NaN(), 20, 29, 23, 26, 30, 17, 13, 10.5, 7.5}
+			expected["count"] = []float64{1, 2, 3, 4, 5, 5, 5, 5, 5, 5}
+			expected["mean"] = []float64{33, 43, 36.66666667, 31.5, 28.8, 22.4, 13.2, 10.2, 8, 6.8}
+			expected["median"] = []float64{33, 43, 33, 28.5, 24, 18, 16, 9, 7, 7}
+			expected["sum"] = []float64{33, 86, 110, 126, 144, 112, 66, 51, 40, 34}
+			expected["standard_deviation"] = []float64{0, 10, 12.120, 13.793, 13.467, 17.072, 8.183, 6.177, 5.657, 3.709}
+			expected["variance"] = []float64{0, 100, 146.889, 190.25, 181.36, 291.44, 66.96, 38.16, 32, 13.76}
+			expected["maximum"] = []float64{33, 53, 53, 53, 53, 53, 24, 18, 18, 12}
+			expected["minimum"] = []float64{33, 33, 24, 16, 16, 1, 1, 1, 1, 1}
+			expected["99%_ile"] = []float64{33, 53, 53, 53, 53, 53, 24, 18, 18, 12}
+			expected["95%_ile"] = []float64{33, 53, 53, 53, 53, 53, 24, 18, 18, 12}
+			expected["2%_ile"] = []float64{33, 33, 24, 16, 16, 1, 1, 1, 1, 1}
+			expected["9%_ile"] = []float64{33, 33, 24, 16, 16, 1, 1, 1, 1, 1}
+			expected["25%_ile"] = []float64{33, 33, 24, 16, 18, 16, 7, 7, 5, 5}
+			expected["75%_ile"] = []float64{33, 53, 53, 33, 33, 24, 18, 16, 9, 9}
+			expected["91%_ile"] = []float64{33, 53, 53, 53, 53, 53, 24, 18, 18, 12}
+			expected["98%_ile"] = []float64{33, 53, 53, 53, 53, 53, 24, 18, 18, 12}
+			expected["kurtosis"] = []float64{math.NaN(), math.NaN(), math.NaN(), 1.8964, 2.337, 2.563, 1.6874, 1.6624, 2.4383, 2.0035}
+			expected["skewness"] = []float64{math.NaN(), math.NaN(), 0.426, 0.552, 0.883, 0.744, -0.242, -0.122, 0.696, -0.195}
+			expected["trimean"] = []float64{math.NaN(), math.NaN(), 35.75, 30, 27, 20.75, 14.25, 9.75, 7.625, 6.875}
+			expected["range"] = []float64{0, 20, 29, 37, 37, 52, 23, 17, 17, 11}
+			expected["quartile_range"] = []float64{math.NaN(), 20, 29, 23, 26, 30, 17, 13, 10.5, 7.5}
 
 			//Tracks current location of results
 			count := 0
@@ -135,66 +135,66 @@ func TestStatisticsProcessorMetrics(t *testing.T) {
 				}
 
 				switch ns {
-				case "Count":
-					So(m.Data, ShouldAlmostEqual, expected["Count"][count], 0.01)
-				case "Mean":
-					So(m.Data, ShouldAlmostEqual, expected["Mean"][count], 0.01)
-				case "Median":
-					So(m.Data, ShouldAlmostEqual, expected["Median"][count], 0.01)
-				case "Trimean":
-					if math.IsNaN(expected["Trimean"][count]) {
+				case "count":
+					So(m.Data, ShouldAlmostEqual, expected["count"][count], 0.01)
+				case "mean":
+					So(m.Data, ShouldAlmostEqual, expected["mean"][count], 0.01)
+				case "median":
+					So(m.Data, ShouldAlmostEqual, expected["median"][count], 0.01)
+				case "trimean":
+					if math.IsNaN(expected["trimean"][count]) {
 						So(m.Data, ShouldNotBeNil)
 					} else {
 
-						So(m.Data, ShouldAlmostEqual, expected["Trimean"][count], 0.01)
+						So(m.Data, ShouldAlmostEqual, expected["trimean"][count], 0.01)
 					}
-				case "Range":
-					So(m.Data, ShouldAlmostEqual, expected["Range"][count], 0.01)
-				case "Sum":
-					So(m.Data, ShouldAlmostEqual, expected["Sum"][count], 0.01)
-				case "Kurtosis":
-					if math.IsNaN(expected["Kurtosis"][count]) {
+				case "range":
+					So(m.Data, ShouldAlmostEqual, expected["range"][count], 0.01)
+				case "sum":
+					So(m.Data, ShouldAlmostEqual, expected["sum"][count], 0.01)
+				case "kurtosis":
+					if math.IsNaN(expected["kurtosis"][count]) {
 						So(m.Data, ShouldNotBeNil)
 					} else {
-						So(m.Data, ShouldAlmostEqual, expected["Kurtosis"][count], 0.01)
+						So(m.Data, ShouldAlmostEqual, expected["kurtosis"][count], 0.01)
 					}
-				case "Skewness":
-					if math.IsNaN(expected["Skewness"][count]) {
+				case "skewness":
+					if math.IsNaN(expected["skewness"][count]) {
 						So(m.Data, ShouldNotBeNil)
 					} else {
-						So(m.Data, ShouldAlmostEqual, expected["Skewness"][count], 0.01)
+						So(m.Data, ShouldAlmostEqual, expected["skewness"][count], 0.01)
 					}
-				case "Standard Deviation":
-					So(m.Data, ShouldAlmostEqual, expected["Standard Deviation"][count], 0.01)
-				case "Variance":
-					So(m.Data, ShouldAlmostEqual, expected["Variance"][count], 0.01)
-				case "Maximum":
-					So(m.Data, ShouldAlmostEqual, expected["Maximum"][count], 0.01)
-				case "Minimum":
-					So(m.Data, ShouldAlmostEqual, expected["Minimum"][count], 0.01)
-				case "99%-ile":
-					So(m.Data, ShouldAlmostEqual, expected["99%-ile"][count], 0.01)
-				case "95%-ile":
-					So(m.Data, ShouldAlmostEqual, expected["95%-ile"][count], 0.01)
-				case "2%-ile":
-					So(m.Data, ShouldAlmostEqual, expected["2%-ile"][count], 0.01)
-				case "9%-ile":
-					So(m.Data, ShouldAlmostEqual, expected["9%-ile"][count], 0.01)
-				case "25%-ile":
-					So(m.Data, ShouldAlmostEqual, expected["25%-ile"][count], 0.01)
-				case "75%-ile":
-					So(m.Data, ShouldAlmostEqual, expected["75%-ile"][count], 0.01)
-				case "91%-ile":
-					So(m.Data, ShouldAlmostEqual, expected["91%-ile"][count], 0.01)
-				case "98%-ile":
-					So(m.Data, ShouldAlmostEqual, expected["98%-ile"][count], 0.01)
-				case "Mode":
+				case "standard_deviation":
+					So(m.Data, ShouldAlmostEqual, expected["standard_deviation"][count], 0.01)
+				case "variance":
+					So(m.Data, ShouldAlmostEqual, expected["variance"][count], 0.01)
+				case "maximum":
+					So(m.Data, ShouldAlmostEqual, expected["maximum"][count], 0.01)
+				case "minimum":
+					So(m.Data, ShouldAlmostEqual, expected["minimum"][count], 0.01)
+				case "99%_ile":
+					So(m.Data, ShouldAlmostEqual, expected["99%_ile"][count], 0.01)
+				case "95%_ile":
+					So(m.Data, ShouldAlmostEqual, expected["95%_ile"][count], 0.01)
+				case "2%_ile":
+					So(m.Data, ShouldAlmostEqual, expected["2%_ile"][count], 0.01)
+				case "9%_ile":
+					So(m.Data, ShouldAlmostEqual, expected["9%_ile"][count], 0.01)
+				case "25%_ile":
+					So(m.Data, ShouldAlmostEqual, expected["25%_ile"][count], 0.01)
+				case "75%_ile":
+					So(m.Data, ShouldAlmostEqual, expected["75%_ile"][count], 0.01)
+				case "91%_ile":
+					So(m.Data, ShouldAlmostEqual, expected["91%_ile"][count], 0.01)
+				case "98%_ile":
+					So(m.Data, ShouldAlmostEqual, expected["98%_ile"][count], 0.01)
+				case "mode":
 					So(m.Data, ShouldResemble, modes[count])
-				case "Quartile_Range":
-					if math.IsNaN(expected["Quartile_Range"][count]) {
+				case "quartile_range":
+					if math.IsNaN(expected["quartile_range"][count]) {
 						So(m.Data, ShouldNotBeNil)
 					} else {
-						So(m.Data, ShouldAlmostEqual, expected["Quartile_Range"][count], 0.01)
+						So(m.Data, ShouldAlmostEqual, expected["quartile_range"][count], 0.01)
 					}
 				default:
 					log.Println("Raw metric found")

@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
 	"sort"
 	"time"
 
@@ -89,58 +88,55 @@ func (p *Plugin) calculateStats(buff interface{}, startTime time.Time, stopTime 
 		}
 	}
 
-	statList := [...]string{"Count", "Mean", "Median", "Standard Deviation", "Variance", "95%-ile", "99%-ile", "2%-ile", "9%-ile", "25%-ile", "75%-ile", "91%-ile", "98%-ile", "Minimum", "Maximum", "Range", "Mode", "Kurtosis", "Skewness", "Sum", "Trimean", "Quartile_Range"}
-	mean, meanErr := stats.Mean(buffer)
-	stdev, stdevErr := stats.StandardDeviation(buffer)
+	statList := [...]string{"count", "mean", "median", "standard_deviation", "variance", "95%_ile", "99%_ile", "2%_ile", "9%_ile", "25%_ile", "75%_ile", "91%_ile", "98%_ile", "minimum", "maximum", "range", "mode", "kurtosis", "skewness", "sum", "trimean", "quartile_range"}
 	min, minErr := stats.Min(buffer)
 	max, maxErr := stats.Max(buffer)
-	median, medErr := stats.Median(buffer)
 
 	for _, stat := range statList {
 		switch stat {
-		case "Count":
+		case "count":
 			val = float64(len(buffer))
-		case "Mean":
-			val, err = mean, meanErr
-		case "Median":
-			val, err = median, medErr
-		case "Standard Deviation":
-			val, err = stdev, stdevErr
-		case "Variance":
+		case "mean":
+			val, err = stats.Mean(buffer)
+		case "median":
+			val, err = stats.Median(buffer)
+		case "standard_deviation":
+			val, err = stats.StandardDeviation(buffer)
+		case "variance":
 			val, err = stats.Variance(buffer)
-		case "95%-ile":
+		case "95%_ile":
 			val, err = stats.PercentileNearestRank(buffer, 95)
-		case "99%-ile":
+		case "99%_ile":
 			val, err = stats.PercentileNearestRank(buffer, 99)
-		case "2%-ile":
+		case "2%_ile":
 			val, err = stats.PercentileNearestRank(buffer, 2)
-		case "9%-ile":
+		case "9%_ile":
 			val, err = stats.PercentileNearestRank(buffer, 9)
-		case "25%-ile":
+		case "25%_ile":
 			val, err = stats.PercentileNearestRank(buffer, 25)
-		case "75%-ile":
+		case "75%_ile":
 			val, err = stats.PercentileNearestRank(buffer, 75)
-		case "91%-ile":
+		case "91%_ile":
 			val, err = stats.PercentileNearestRank(buffer, 91)
-		case "98%-ile":
+		case "98%_ile":
 			val, err = stats.PercentileNearestRank(buffer, 98)
-		case "Minimum":
+		case "minimum":
 			val, err = min, minErr
-		case "Maximum":
+		case "maximum":
 			val, err = max, maxErr
-		case "Range":
+		case "range":
 			val = max - min
-		case "Mode":
+		case "mode":
 			modeVal, err = stats.Mode(buffer)
-		case "Kurtosis":
+		case "kurtosis":
 			val, err = p.Kurtosis(buffer)
-		case "Skewness":
+		case "skewness":
 			val, err = p.Skewness(buffer)
-		case "Sum":
+		case "sum":
 			val, err = stats.Sum(buffer)
-		case "Trimean":
+		case "trimean":
 			val, err = stats.Trimean(buffer)
-		case "Quartile_Range":
+		case "quartile_range":
 			val, err = stats.InterQuartileRange(buffer)
 		default:
 			st := fmt.Sprintf("Unknown statistic received %T:", stat)
@@ -160,7 +156,7 @@ func (p *Plugin) calculateStats(buff interface{}, startTime time.Time, stopTime 
 			Tags:      tags,
 		}
 
-		if stat == "Mode" {
+		if stat == "mode" {
 			metric.Data = modeVal
 		}
 
@@ -291,12 +287,12 @@ func (p *Plugin) getTimes(times []time.Time) (time.Time, time.Time) {
 
 // Process processes the data, inputs the data into this' buffer and calls the descriptive statistics method
 func (p *Plugin) Process(metrics []plugin.Metric, cfg plugin.Config) ([]plugin.Metric, error) {
-	f, err := os.OpenFile("/tmp/statisticErr.txt", os.O_WRONLY|os.O_CREATE, 0755)
+	/* f, err := os.OpenFile("/tmp/statisticErr.txt", os.O_WRONLY|os.O_CREATE, 0755)
 	if err != nil {
 		log.Warn("File reading error.")
 	}
 
-	log.SetOutput(f)
+	log.SetOutput(f) */
 
 	bufsize, err := cfg.GetInt("SlidingWindowLength")
 	p.bufferMaxSize = int(bufsize)
@@ -339,7 +335,6 @@ func (p *Plugin) Process(metrics []plugin.Metric, cfg plugin.Config) ([]plugin.M
 				}
 				results = append(results, stats...)
 			} else if p.bufferCurSize == p.bufferMaxSize {
-				log.Printf("Buffer: %v", p.buffer[k])
 				stats, err := p.calculateStats(p.buffer[k], startTime, stopTime, k, unit)
 				if err != nil {
 					log.Warnf("Error occured in calculating Statistics: %s", err)
