@@ -60,8 +60,6 @@ func (p *Plugin) calculateStats(buff interface{}, startTime time.Time, stopTime 
 	var err error
 	var val float64
 	var modeVal []float64
-	var fivesummary []float64
-	var sevensummary []float64
 	tags := map[string]string{
 		"startTime": startTime.String(),
 		"stopTime":  stopTime.String(),
@@ -91,8 +89,7 @@ func (p *Plugin) calculateStats(buff interface{}, startTime time.Time, stopTime 
 		}
 	}
 
-	statList := [...]string{"Count", "Mean", "Median", "Standard Deviation", "Variance", "95%-ile", "99%-ile", "Minimum", "Maximum", "Range", "Mode", "Kurtosis", "Skewness", "Sum", "Trimean", "Quartile_Range", "Five_Number_Summary", "Seven_Number_Summary"}
-
+	statList := [...]string{"Count", "Mean", "Median", "Standard Deviation", "Variance", "95%-ile", "99%-ile", "2%-ile", "9%-ile", "25%-ile", "75%-ile", "91%-ile", "98%-ile", "Minimum", "Maximum", "Range", "Mode", "Kurtosis", "Skewness", "Sum", "Trimean", "Quartile_Range"}
 	mean, meanErr := stats.Mean(buffer)
 	stdev, stdevErr := stats.StandardDeviation(buffer)
 	min, minErr := stats.Min(buffer)
@@ -112,9 +109,21 @@ func (p *Plugin) calculateStats(buff interface{}, startTime time.Time, stopTime 
 		case "Variance":
 			val, err = stats.Variance(buffer)
 		case "95%-ile":
-			val, err = stats.Percentile(buffer, 95)
+			val, err = stats.PercentileNearestRank(buffer, 95)
 		case "99%-ile":
-			val, err = stats.Percentile(buffer, 99)
+			val, err = stats.PercentileNearestRank(buffer, 99)
+		case "2%-ile":
+			val, err = stats.PercentileNearestRank(buffer, 2)
+		case "9%-ile":
+			val, err = stats.PercentileNearestRank(buffer, 9)
+		case "25%-ile":
+			val, err = stats.PercentileNearestRank(buffer, 25)
+		case "75%-ile":
+			val, err = stats.PercentileNearestRank(buffer, 75)
+		case "91%-ile":
+			val, err = stats.PercentileNearestRank(buffer, 91)
+		case "98%-ile":
+			val, err = stats.PercentileNearestRank(buffer, 98)
 		case "Minimum":
 			val, err = min, minErr
 		case "Maximum":
@@ -133,10 +142,6 @@ func (p *Plugin) calculateStats(buff interface{}, startTime time.Time, stopTime 
 			val, err = stats.Trimean(buffer)
 		case "Quartile_Range":
 			val, err = stats.InterQuartileRange(buffer)
-		case "Five_Number_Summary":
-			fivesummary, err = p.FiveNumberSummary(buffer, min, max, median)
-		case "Seven_Number_Summary":
-			sevensummary, err = p.SevenNumberSummary(buffer, median)
 		default:
 			st := fmt.Sprintf("Unknown statistic received %T:", stat)
 			log.Errorf(st)
@@ -157,14 +162,6 @@ func (p *Plugin) calculateStats(buff interface{}, startTime time.Time, stopTime 
 
 		if stat == "Mode" {
 			metric.Data = modeVal
-		}
-
-		if stat == "Five_Number_Summary" {
-			metric.Data = fivesummary
-		}
-
-		if stat == "Seven_Number_Summary" {
-			metric.Data = sevensummary
 		}
 
 		result = append(result, metric)
@@ -230,68 +227,6 @@ func (p *Plugin) Kurtosis(buffer []float64) (float64, error) {
 		kurt += math.Pow((val-mean)/stdev, 4)
 	}
 	return float64(1 / float64(len(buffer)) * kurt), nil
-}
-
-// Calculates the five number summary that includes minimum, first quartile, median, third quartile, and maximum in that order
-func (p *Plugin) FiveNumberSummary(buffer []float64, min float64, max float64, median float64) ([]float64, error) {
-
-	var summary []float64
-
-	if len(buffer) == 0 {
-		log.Warnf("Buffer does not contain any data.")
-		return nil, errors.New("Buffer doesn't contain any data")
-	}
-
-	quartile, err := stats.Quartile(buffer)
-
-	if err != nil {
-		log.Warnf("Error in Quartile: %s", err)
-		return nil, err
-	}
-
-	summary = append(summary, min, quartile.Q1, median, quartile.Q3, max)
-	return summary, err
-}
-
-// Calcualate the seven number summary of a float64 array
-func (p *Plugin) SevenNumberSummary(buffer []float64, median float64) ([]float64, error) {
-	var summary []float64
-	if len(buffer) == 0 {
-		log.Printf("Buffer does not contain any data.")
-		return summary, errors.New("Buffer doesn't contain any data.")
-	}
-
-	percentiles := [...]string{"Second", "Ninth", "Twenty_Fifth", "Median", "Seventy_Fifth", "Ninety_First", "Ninety_Eight"}
-	var err error
-	var val float64
-	for _, each := range percentiles {
-		switch each {
-		case "Second":
-			val, err = stats.PercentileNearestRank(buffer, 2)
-		case "Ninth":
-			val, err = stats.PercentileNearestRank(buffer, 9)
-		case "Twenty_Fifth":
-			val, err = stats.PercentileNearestRank(buffer, 25)
-		case "Median":
-			val = median
-		case "Seventy_Fifth":
-			val, err = stats.PercentileNearestRank(buffer, 75)
-		case "Ninety_First":
-			val, err = stats.PercentileNearestRank(buffer, 91)
-		case "Ninety_Eight":
-			val, err = stats.PercentileNearestRank(buffer, 98)
-		default:
-			st := fmt.Sprintf("Unknown statistic received")
-			log.Warnf(st)
-			err = errors.New(st)
-		}
-		if err != nil {
-			log.Warnf("Error in statictic: %s", err)
-			return nil, err
-		}
-		summary = append(summary, val)
-	}
-	return summary, err
 }
 
 // insertInToBuffer adds a new value into this' buffer object

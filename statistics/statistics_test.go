@@ -24,7 +24,6 @@ package statistics
 import (
 	"log"
 	"math"
-	"reflect"
 	"testing"
 	"time"
 
@@ -101,29 +100,6 @@ func TestStatisticsProcessorMetrics(t *testing.T) {
 
 			modes := [][]float64{[]float64{33}, empty, empty, empty, empty, empty, empty, empty, empty, empty}
 
-			fiveNumberSummaries := [][]float64{[]float64{33, math.NaN(), 33, math.NaN(), 33},
-				[]float64{33, 33, 43, 53, 53},
-				[]float64{24, 24, 33, 53, 53},
-				[]float64{16, 20, 28.5, 43, 53},
-				[]float64{16, 17, 24, 43, 53},
-				[]float64{1, 8.5, 18, 38.5, 53},
-				[]float64{1, 4, 16, 21, 24},
-				[]float64{1, 4, 9, 17, 18},
-				[]float64{1, 3, 7, 13.5, 18},
-				[]float64{1, 3, 7, 10.5, 12},
-			}
-
-			sevenNumberSummaries := [][]float64{[]float64{33, 33, 33, 33, 33, 33, 33},
-				[]float64{33, 33, 33, 43, 53, 53, 53},
-				[]float64{24, 24, 24, 33, 53, 53, 53},
-				[]float64{16, 16, 16, 28.5, 33, 53, 53},
-				[]float64{16, 16, 18, 24, 33, 53, 53},
-				[]float64{1, 1, 16, 18, 24, 53, 53},
-				[]float64{1, 1, 7, 16, 18, 24, 24},
-				[]float64{1, 1, 7, 9, 16, 18, 18},
-				[]float64{1, 1, 5, 7, 9, 18, 18},
-				[]float64{1, 1, 5, 7, 9, 12, 12},
-			}
 			expected := make(map[string][]float64)
 			expected["Count"] = []float64{1, 2, 3, 4, 5, 5, 5, 5, 5, 5}
 			expected["Mean"] = []float64{33, 43, 36.66666667, 31.5, 28.8, 22.4, 13.2, 10.2, 8, 6.8}
@@ -135,6 +111,12 @@ func TestStatisticsProcessorMetrics(t *testing.T) {
 			expected["Minimum"] = []float64{33, 33, 24, 16, 16, 1, 1, 1, 1, 1}
 			expected["99%-ile"] = []float64{33, 53, 53, 53, 53, 53, 24, 18, 18, 12}
 			expected["95%-ile"] = []float64{33, 53, 53, 53, 53, 53, 24, 18, 18, 12}
+			expected["2%-ile"] = []float64{33, 33, 24, 16, 16, 1, 1, 1, 1, 1}
+			expected["9%-ile"] = []float64{33, 33, 24, 16, 16, 1, 1, 1, 1, 1}
+			expected["25%-ile"] = []float64{33, 33, 24, 16, 18, 16, 7, 7, 5, 5}
+			expected["75%-ile"] = []float64{33, 53, 53, 33, 33, 24, 18, 16, 9, 9}
+			expected["91%-ile"] = []float64{33, 53, 53, 53, 53, 53, 24, 18, 18, 12}
+			expected["98%-ile"] = []float64{33, 53, 53, 53, 53, 53, 24, 18, 18, 12}
 			expected["Kurtosis"] = []float64{math.NaN(), math.NaN(), math.NaN(), 1.8964, 2.337, 2.563, 1.6874, 1.6624, 2.4383, 2.0035}
 			expected["Skewness"] = []float64{math.NaN(), math.NaN(), 0.426, 0.552, 0.883, 0.744, -0.242, -0.122, 0.696, -0.195}
 			expected["Trimean"] = []float64{math.NaN(), math.NaN(), 35.75, 30, 27, 20.75, 14.25, 9.75, 7.625, 6.875}
@@ -147,8 +129,8 @@ func TestStatisticsProcessorMetrics(t *testing.T) {
 				//Captures the statistic being processed while ignoring the remaining portions of the namespace
 				ns := m.Namespace.Strings()[1]
 
-				//If all 18 statistics have been compared, then increase metric count
-				if i%18 == 0 && i != 0 {
+				//If all 22 statistics have been compared, then increase metric count
+				if i%22 == 0 && i != 0 {
 					count++
 				}
 
@@ -194,32 +176,20 @@ func TestStatisticsProcessorMetrics(t *testing.T) {
 					So(m.Data, ShouldAlmostEqual, expected["99%-ile"][count], 0.01)
 				case "95%-ile":
 					So(m.Data, ShouldAlmostEqual, expected["95%-ile"][count], 0.01)
+				case "2%-ile":
+					So(m.Data, ShouldAlmostEqual, expected["2%-ile"][count], 0.01)
+				case "9%-ile":
+					So(m.Data, ShouldAlmostEqual, expected["9%-ile"][count], 0.01)
+				case "25%-ile":
+					So(m.Data, ShouldAlmostEqual, expected["25%-ile"][count], 0.01)
+				case "75%-ile":
+					So(m.Data, ShouldAlmostEqual, expected["75%-ile"][count], 0.01)
+				case "91%-ile":
+					So(m.Data, ShouldAlmostEqual, expected["91%-ile"][count], 0.01)
+				case "98%-ile":
+					So(m.Data, ShouldAlmostEqual, expected["98%-ile"][count], 0.01)
 				case "Mode":
 					So(m.Data, ShouldResemble, modes[count])
-				case "Five_Number_Summary":
-					switch reflect.TypeOf(m.Data).Kind() {
-					case reflect.Slice:
-						sli := reflect.ValueOf(m.Data)
-						for j, v := range fiveNumberSummaries[count] {
-							if math.IsNaN(v) {
-								So(sli.Index(j).Interface(), ShouldNotBeNil)
-							} else {
-								So(sli.Index(j).Interface(), ShouldAlmostEqual, v, 0.01)
-							}
-						}
-					}
-				case "Seven_Number_Summary":
-					switch reflect.TypeOf(m.Data).Kind() {
-					case reflect.Slice:
-						sl := reflect.ValueOf(m.Data)
-						for j, v := range sevenNumberSummaries[count] {
-							if math.IsNaN(v) {
-								So(sl.Index(j).Interface(), ShouldNotBeNil)
-							} else {
-								So(sl.Index(j).Interface(), ShouldAlmostEqual, v, 0.01)
-							}
-						}
-					}
 				case "Quartile_Range":
 					if math.IsNaN(expected["Quartile_Range"][count]) {
 						So(m.Data, ShouldNotBeNil)
