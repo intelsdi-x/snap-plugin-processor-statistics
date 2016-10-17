@@ -20,17 +20,10 @@ limitations under the License.
 package main
 
 import (
-	"os"
-
+	"github.com/intelsdi-x/snap-plugin-lib-go/v1/plugin"
 	"github.com/intelsdi-x/snap-plugin-processor-statistics/statistics"
-	"github.com/intelsdi-x/snap/control/plugin"
 )
 
 func main() {
-	statisticsPlugin := statistics.New()
-	if statisticsPlugin == nil {
-		panic("Failed to initialize plugin!\n")
-	}
-	meta := statistics.Meta()
-	plugin.Start(meta, statisticsPlugin, os.Args[1])
+	plugin.StartProcessor(statistics.New(), statistics.Name, statistics.Version)
 }
