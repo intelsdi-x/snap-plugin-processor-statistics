@@ -21,6 +21,7 @@ package statistics
 import (
 	"fmt"
 	"math"
+	"sort"
 	"time"
 
 	"github.com/intelsdi-x/snap-plugin-lib-go/v1/plugin"
@@ -28,9 +29,11 @@ import (
 
 //Contains a slice of data
 type dataBuffer struct {
-	data              []data
-	index, start, end int
+	data            buffer
+	dataByTimestamp buffer
+	index           int
 }
+type buffer []*data
 
 //data holds the timestamp and the value (actual data)
 type data struct {
@@ -54,32 +57,27 @@ type Flag struct {
 	NinetyNinthPercentile bool
 }
 
-//
-// func (d *dataBuffer) Insert(value float64, ts time.Time) {
-// 	newIndex := 0
-// 	for i, val := range d.data {
-// 		if val.Value > value {
-// 			d.data[i] = 3
-// 		}
-// 	}
-// 	if newIndex > d.start {
-// 		d.data = append(d.data[:d.start], d.data[d.start:newIndex], data{ts: ts, value: value}, d.data[newIndex:])
-// 	} else {
-// 		d.data = append(d.data[:newIndex], data{ts: ts, value: value}, d.data[newIndex:d.start], d.data[d.start:])
-// 	}
+func (a buffer) Len() int           { return len(a) }
+func (a buffer) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a buffer) Less(i, j int) bool { return a[i].value < a[j].value }
 
-// 	return
-// }
+func (b *dataBuffer) Insert(value float64, ts time.Time) {
+	if len(b.data) < cap(b.data) {
+		element := &data{value: value, ts: ts}
+		b.data = append(b.data, element)
+		b.dataByTimestamp = append(b.dataByTimestamp, element)
+	} else {
+		b.dataByTimestamp[b.index].ts, b.dataByTimestamp[b.index].value = ts, value
+		b.index = (b.index + 1) % cap(b.data)
+	}
+	sort.Sort(b.data)
+}
 
-// func (d *dataBuffer) Insert(value float64, ts time.Time) {
-// 	elt := data{ts: ts, value: value}
-// 	if len(d.data) < cap(d.data) {
-// 		d.data = append(d.data, elt)
-// 	} else {
-// 		d.data[d.index] = elt
-// 		d.index = (d.index + 1) % cap(d.data)
-// 	}
-// }
+func (b *dataBuffer) timeDiff() time.Duration {
+	new := (b.index + len(b.data) - 1) % len(b.data)
+	old := b.index
+	return b.dataByTimestamp[new].ts.Sub(b.dataByTimestamp[old].ts)
+}
 
 func SetFlags(stats []string) (flag Flag, err error) {
 	for _, stat := range stats {
@@ -152,16 +150,35 @@ func SetFlags(stats []string) (flag Flag, err error) {
 	return
 }
 
+func createMetric(data float64, tags map[string]string) plugin.Metric {
+	return plugin.Metric{
+		Timestamp: time.Now(),
+		Tags:      tags,
+		Data:      data,
+	}
+}
+
+func (b *dataBuffer) GetTags() map[string]string {
+	new := (b.index + len(b.data) - 1) % len(b.data)
+	old := b.index
+	oldTs := b.dataByTimestamp[old].ts
+	newTs := b.dataByTimestamp[new].ts
+	return map[string]string{"startTime": oldTs.String(), "stopTime": newTs.String()}
+}
+
 func (d *dataBuffer) GetStats(stats []string, ns []string) ([]plugin.Metric, error) {
 	var results []plugin.Metric
+	var metric plugin.Metric
+	nsPrefix := []string{"intel", "statistics"}
+	tags := d.GetTags()
 	bufferSize := len(d.data)
 	var (
-		Count, Sum, Mean, Median, Minimum, Maximum, Range, Variance,
-		StandardDeviation, Mode, Kurtosis, Skewness, Trimean,
-		FirstQuartile, ThirdQuartile, QuartileRange,
-		SecondPercentile, NinthPercentile, TwentyFifthPercentile, SeventyFifthPercentile,
-		NinetyFirstPercentile, NinetyFifthPercentile, NinetyEighthPercentile,
-		NinetyNinthPercentile float64
+		count, sum, mean, median, minimum, maximum, Range, variance,
+		standarddeviation, mode, kurtosis, skewness, trimean,
+		firstquartile, thirdquartile, quartilerange,
+		secondpercentile, ninthpercentile, twentyfifthpercentile, seventyfifthpercentile,
+		ninetyfirstpercentile, ninetyfifthpercentile, ninetyeighthpercentile,
+		ninetyninthpercentile float64
 	)
 	flag, err := SetFlags(stats)
 	if err != nil {
@@ -169,21 +186,26 @@ func (d *dataBuffer) GetStats(stats []string, ns []string) ([]plugin.Metric, err
 	}
 
 	if flag.Sum {
-		Sum = d.Sum()
-		//create metric sum
+		sum = d.Sum()
+		metric = createMetric(sum, tags)
+		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("sum")
+		results = append(results, metric)
 	}
 
 	if flag.Range || flag.Minimum {
-		Minimum = d.Minimum()
+		minimum = d.Minimum()
 		if flag.Minimum {
-			// create metric minumum
+			metric = createMetric(sum, tags)
+			metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("minimum")
+			results = append(results, metric)
 		}
 	}
 
 	if flag.Range || flag.Maximum {
-		Maximum = d.Maximum()
+		maximum = d.Maximum()
 		if flag.Maximum {
-			// create metric maximum
+			ns := plugin.NewNamespace(nsPrefix).AddStaticElements(ns).AddStaticElement("maximum")
+			results = append(results, createMetric(maximum))
 		}
 	}
 	if flag.Range {
