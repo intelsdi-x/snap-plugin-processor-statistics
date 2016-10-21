@@ -19,153 +19,146 @@ limitations under the License.
 package statistics
 
 import (
-	"errors"
 	"fmt"
-	"math"
-	"sort"
-	"time"
+	"strings"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/intelsdi-x/snap-plugin-lib-go/v1/plugin"
-	"github.com/montanaflynn/stats"
 )
+
+type Plugin struct {
+	buffer map[string]*dataBuffer
+}
 
 const (
 	Name    = "statistics"
 	Version = 2
 )
 
-type Plugin struct {
-	buffer        map[string][]interface{}
-	bufferMaxSize int
-	bufferCurSize int
-	bufferIndex   int
-}
+var (
+	statList = []string{"count", "mean", "median", "standard_deviation", "variance", "95%_ile", "99%_ile", "2%_ile", "9%_ile", "25%_ile", "75%_ile", "91%_ile", "98%_ile", "minimum", "maximum", "range", "mode", "kurtosis", "skewness", "sum", "trimean", "quartile_range"}
+)
 
 // New() returns a new instance of this
 func New() *Plugin {
-	buffer := make(map[string][]interface{})
-	p := &Plugin{buffer: buffer,
-		bufferMaxSize: 100,
-		bufferCurSize: 0,
-		bufferIndex:   0}
+	buffer := make(map[string]*dataBuffer)
+	p := &Plugin{buffer: buffer}
 	return p
 }
 
 // calculateStats calaculates the descriptive statistics for buff
-func (p *Plugin) calculateStats(buff interface{}, startTime time.Time, stopTime time.Time, namespace string, unit string) ([]plugin.Metric, error) {
-	var result []plugin.Metric
-	var buffer []float64
-	var err error
-	var val float64
-	var modeVal []float64
-	tags := map[string]string{
-		"startTime": startTime.String(),
-		"stopTime":  stopTime.String(),
-	}
-	time := time.Now()
+// func (p *Plugin) calculateStats(buff interface{}, startTime time.Time, stopTime time.Time, namespace string, unit string) ([]plugin.Metric, error) {
+// 	var result []plugin.Metric
+// 	var buffer []float64
+// 	var err error
+// 	var val float64
+// 	var modeVal []float64
+// 	tags := map[string]string{
+// 		"startTime": startTime.String(),
+// 		"stopTime":  stopTime.String(),
+// 	}
+// 	time := time.Now()
 
-	//Need to change so it ranges over the current size of the buffer and not the capacity
-	for _, val := range buff.([]interface{}) {
-		switch v := val.(type) {
-		default:
-			st := fmt.Sprintf("Unknown data received in calculateStats(): Type %T", v)
-			return nil, errors.New(st)
-		case int:
-			buffer = append(buffer, float64(val.(int)))
-		case int32:
-			buffer = append(buffer, float64(val.(int32)))
-		case int64:
-			buffer = append(buffer, float64(val.(int64)))
-		case float64:
-			buffer = append(buffer, val.(float64))
-		case float32:
-			buffer = append(buffer, float64(val.(float32)))
-		case uint64:
-			buffer = append(buffer, float64(val.(uint64)))
-		case uint32:
-			buffer = append(buffer, float64(val.(uint32)))
-		}
-	}
+// 	//Need to change so it ranges over the current size of the buffer and not the capacity
+// 	for _, val := range buff.([]interface{}) {
+// 		switch v := val.(type) {
+// 		default:
+// 			st := fmt.Sprintf("Unknown data received in calculateStats(): Type %T", v)
+// 			return nil, errors.New(st)
+// 		case int:
+// 			buffer = append(buffer, float64(val.(int)))
+// 		case int32:
+// 			buffer = append(buffer, float64(val.(int32)))
+// 		case int64:
+// 			buffer = append(buffer, float64(val.(int64)))
+// 		case float64:
+// 			buffer = append(buffer, val.(float64))
+// 		case float32:
+// 			buffer = append(buffer, float64(val.(float32)))
+// 		case uint64:
+// 			buffer = append(buffer, float64(val.(uint64)))
+// 		case uint32:
+// 			buffer = append(buffer, float64(val.(uint32)))
+// 		}
+// 	}
 
-	statList := [...]string{"count", "mean", "median", "standard_deviation", "variance", "95%_ile", "99%_ile", "2%_ile", "9%_ile", "25%_ile", "75%_ile", "91%_ile", "98%_ile", "minimum", "maximum", "range", "mode", "kurtosis", "skewness", "sum", "trimean", "quartile_range"}
-	min, minErr := stats.Min(buffer)
-	max, maxErr := stats.Max(buffer)
+// 	min, minErr := stats.Min(buffer)
+// 	max, maxErr := stats.Max(buffer)
 
-	for _, stat := range statList {
-		switch stat {
-		case "count":
-			val = float64(len(buffer))
-		case "mean":
-			val, err = stats.Mean(buffer)
-		case "median":
-			val, err = stats.Median(buffer)
-		case "standard_deviation":
-			val, err = stats.StandardDeviation(buffer)
-		case "variance":
-			val, err = stats.Variance(buffer)
-		case "95%_ile":
-			val, err = stats.PercentileNearestRank(buffer, 95)
-		case "99%_ile":
-			val, err = stats.PercentileNearestRank(buffer, 99)
-		case "2%_ile":
-			val, err = stats.PercentileNearestRank(buffer, 2)
-		case "9%_ile":
-			val, err = stats.PercentileNearestRank(buffer, 9)
-		case "25%_ile":
-			val, err = stats.PercentileNearestRank(buffer, 25)
-		case "75%_ile":
-			val, err = stats.PercentileNearestRank(buffer, 75)
-		case "91%_ile":
-			val, err = stats.PercentileNearestRank(buffer, 91)
-		case "98%_ile":
-			val, err = stats.PercentileNearestRank(buffer, 98)
-		case "minimum":
-			val, err = min, minErr
-		case "maximum":
-			val, err = max, maxErr
-		case "range":
-			val = max - min
-		case "mode":
-			modeVal, err = stats.Mode(buffer)
-		case "kurtosis":
-			val, err = p.Kurtosis(buffer)
-		case "skewness":
-			val, err = p.Skewness(buffer)
-		case "sum":
-			val, err = stats.Sum(buffer)
-		case "trimean":
-			val, err = stats.Trimean(buffer)
-		case "quartile_range":
-			val, err = stats.InterQuartileRange(buffer)
-		default:
-			st := fmt.Sprintf("Unknown statistic received %T:", stat)
-			log.Errorf(st)
-			err = errors.New(st)
-		}
+// 	for _, stat := range statList {
+// 		switch stat {
+// 		case "count":
+// 			val = float64(len(buffer))
+// 		case "mean":
+// 			val, err = stats.Mean(buffer)
+// 		case "median":
+// 			val, err = stats.Median(buffer)
+// 		case "standard_deviation":
+// 			val, err = stats.StandardDeviation(buffer)
+// 		case "variance":
+// 			val, err = stats.Variance(buffer)
+// 		case "95%_ile":
+// 			val, err = stats.PercentileNearestRank(buffer, 95)
+// 		case "99%_ile":
+// 			val, err = stats.PercentileNearestRank(buffer, 99)
+// 		case "2%_ile":
+// 			val, err = stats.PercentileNearestRank(buffer, 2)
+// 		case "9%_ile":
+// 			val, err = stats.PercentileNearestRank(buffer, 9)
+// 		case "25%_ile":
+// 			val, err = stats.PercentileNearestRank(buffer, 25)
+// 		case "75%_ile":
+// 			val, err = stats.PercentileNearestRank(buffer, 75)
+// 		case "91%_ile":
+// 			val, err = stats.PercentileNearestRank(buffer, 91)
+// 		case "98%_ile":
+// 			val, err = stats.PercentileNearestRank(buffer, 98)
+// 		case "minimum":
+// 			val, err = min, minErr
+// 		case "maximum":
+// 			val, err = max, maxErr
+// 		case "range":
+// 			val = max - min
+// 		case "mode":
+// 			modeVal, err = stats.Mode(buffer)
+// 		case "kurtosis":
+// 			val, err = p.Kurtosis(buffer)
+// 		case "skewness":
+// 			val, err = p.Skewness(buffer)
+// 		case "sum":
+// 			val, err = stats.Sum(buffer)
+// 		case "trimean":
+// 			val, err = stats.Trimean(buffer)
+// 		case "quartile_range":
+// 			val, err = stats.InterQuartileRange(buffer)
+// 		default:
+// 			st := fmt.Sprintf("Unknown statistic received %T:", stat)
+// 			log.Errorf(st)
+// 			err = errors.New(st)
+// 		}
 
-		if err != nil {
-			log.Warnf("Error in %T", stat)
-		}
+// 		if err != nil {
+// 			log.Warnf("Error in %T", stat)
+// 		}
 
-		metric := plugin.Metric{
-			Data:      val,
-			Namespace: plugin.NewNamespace(namespace, stat),
-			Timestamp: time,
-			Unit:      unit,
-			Tags:      tags,
-		}
+// 		metric := plugin.Metric{
+// 			Data:      val,
+// 			Namespace: plugin.NewNamespace(namespace, stat).AddDynamicElement("Window count", "This is the Nth window")
+// 			Timestamp: time,
+// 			Unit:      unit,
+// 			Tags:      tags,
+// 		}
 
-		if stat == "mode" {
-			metric.Data = modeVal
-		}
+// 		if stat == "mode" {
+// 			metric.Data = modeVal
+// 		}
 
-		result = append(result, metric)
+// 		result = append(result, metric)
 
-	}
-	return result, err
-}
+// 	}
+// 	return result, err
+// }
 
+/*
 //Calaculates the mean and standard deviation of a float64 array.
 func (p *Plugin) MeanStdDev(buffer []float64) (float64, float64, error) {
 	mean, err := stats.Mean(buffer)
@@ -224,75 +217,142 @@ func (p *Plugin) Kurtosis(buffer []float64) (float64, error) {
 	}
 	return float64(1 / float64(len(buffer)) * kurt), nil
 }
-
+*/
 // insertInToBuffer adds a new value into this' buffer object
-func (p *Plugin) insertInToBuffer(val interface{}, ns string) {
+// func (p *Plugin) insertInToBuffer(val interface{}, ns string) {
 
-	if p.bufferCurSize == 0 {
-		var buff = make([]interface{}, p.bufferMaxSize)
-		buff[0] = val
-		p.buffer[ns] = buff
-	} else {
-		p.buffer[ns][p.bufferIndex] = val
-	}
-}
+// 	if p.bufferCurSize == 0 {
+// 		var buff = make([]interface{}, p.bufferMaxSize)
+// 		buff[0] = val
+// 		p.buffer[ns] = buff
+// 	} else {
+// 		p.buffer[ns][p.bufferIndex] = val
+// 	}
+// }
 
-// updateCounters updates the meta informaiton (current size and index) of this' buffer object
-func (p *Plugin) updateCounters() {
-	if p.bufferCurSize < p.bufferMaxSize {
-		p.bufferCurSize++
-	}
+// // updateCounters updates the meta informaiton (current size and index) of this' buffer object
+// func (p *Plugin) updateCounters() {
+// 	if p.bufferCurSize < p.bufferMaxSize {
+// 		p.bufferCurSize++
+// 	}
 
-	if p.bufferIndex == p.bufferMaxSize-1 {
-		p.bufferIndex = 0
-	} else {
-		p.bufferIndex++
-	}
-}
+// 	if p.bufferIndex == p.bufferMaxSize-1 {
+// 		p.bufferIndex = 0
+// 	} else {
+// 		p.bufferIndex++
+// 	}
+// }
 
 // GetConfigPolicy returns the config policy
 func (p *Plugin) GetConfigPolicy() (plugin.ConfigPolicy, error) {
 	policy := plugin.NewConfigPolicy()
 
-	policy.AddNewIntRule([]string{""}, "SlidingWindowLength", false, plugin.SetDefaultInt(100))
+	policy.AddNewIntRule([]string{""}, "slidingWindowLength", false, plugin.SetDefaultInt(100), plugin.SetMinInt(1))
+	policy.AddNewIntRule([]string{""}, "bufferSize", false, plugin.SetDefaultInt(100), plugin.SetMinInt(1))
+	policy.AddNewIntRule([]string{""}, "slidingFactor", false, plugin.SetDefaultInt(100), plugin.SetMinInt(1))
+	policy.AddNewStringRule([]string{""}, "statistics", false, plugin.SetDefaultString(strings.Join(statList, ",")))
 	return *policy, nil
 
 }
 
-type byTimestamp []plugin.Metric
+// type byTimestamp []plugin.Metric
 
-func (sa byTimestamp) Len() int {
-	return len(sa)
-}
+// func (sa byTimestamp) Len() int {
+// 	return len(sa)
+// }
 
-func (sa byTimestamp) Less(i, j int) bool {
-	return sa[i].Timestamp.Before(sa[j].Timestamp)
+// func (sa byTimestamp) Less(i, j int) bool {
+// 	return sa[i].Timestamp.Before(sa[j].Timestamp)
 
-}
-func (sa byTimestamp) Swap(i, j int) {
-	sa[i], sa[j] = sa[j], sa[i]
-}
+// }
+// func (sa byTimestamp) Swap(i, j int) {
+// 	sa[i], sa[j] = sa[j], sa[i]
+// }
 
-func (p *Plugin) insertInToTimeBuffer(metric plugin.Metric, times []time.Time) []time.Time {
-	times[p.bufferIndex] = metric.Timestamp
-	return times
-}
+// func (p *Plugin) insertInToTimeBuffer(metric plugin.Metric, times []time.Time) []time.Time {
+// 	times[p.bufferIndex] = metric.Timestamp
+// 	return times
+// }
 
-func (p *Plugin) getTimes(times []time.Time) (time.Time, time.Time) {
-	if p.bufferCurSize == p.bufferMaxSize && p.bufferIndex != p.bufferMaxSize-1 {
-		return times[p.bufferIndex+1], times[p.bufferIndex]
+// func (p *Plugin) getTimes(times []time.Time) (time.Time, time.Time) {
+// 	if p.bufferCurSize == p.bufferMaxSize && p.bufferIndex != p.bufferMaxSize-1 {
+// 		return times[p.bufferIndex+1], times[p.bufferIndex]
+// 	}
+// 	return times[0], times[p.bufferIndex]
+// }
+
+func GetConfig(cfg plugin.Config) (buffersize, slidingWinLen, slidingFac int, statistics []string, err error) {
+	var stats string
+	stats, err = cfg.GetString("statistics")
+	if err != nil {
+		return
 	}
-	return times[0], times[p.bufferIndex]
+	statistics = strings.Split(stats, ",")
+	var tmp int64
+	tmp, err = cfg.GetInt("bufferSize")
+	if err != nil {
+		return
+	}
+	buffersize = int(tmp)
+	tmp, err = cfg.GetInt("SlidingWindowLength")
+	if err != nil {
+		return
+	}
+	slidingWinLen = int(tmp)
+	tmp, err = cfg.GetInt("slidingFactor")
+	if err != nil {
+		return
+	}
+	slidingFac = int(tmp)
+
+	errString := ""
+	if slidingWinLen > buffersize {
+		errString += "Sliding Window Length is greater than Buffer Size and it shouldn't be\n"
+	}
+
+	if slidingFac > slidingWinLen {
+		errString += "Sliding Factor is greater than window length and it shouldn't be\n"
+	}
+
+	if buffersize%slidingFac != 0 {
+		errString += "Sliding Factor should be a multiple of Buffer Size. Please change the config to suit this\n"
+	}
+	if errString != "" {
+		err = fmt.Errorf(errString)
+	}
+	return
 }
 
+func (p *Plugin) Process(metrics []plugin.Metric, cfg plugin.Config) ([]plugin.Metric, error) {
+	var result []plugin.Metric
+	for _, metric := range metrics {
+		bufferSize, slidingWindowLength, slidingFactor, stats, err := (cfg)
+
+		floatValue, err := getFloat(metric.Value)
+		// convert any number to float64
+		if err != nil {
+			return nil, err
+			// NaN
+		}
+		ns := metric.Namespace.String() // to re-do
+		buffer, ok := p.buffer[ns]
+		if !ok {
+			p.buffer[ns] = &dataBuffer{data: make([]data, 0, bufferSize)}
+		} else {
+			// TODO: test if buffer size from the config is different than cap(p.buffer[ns])
+		}
+		buffer.Insert(floatValue, metric.Timestamp)
+		// add a new element to the sorted list
+
+		result = append(result, buffer.GetStats(slidingWindowLength, slidingFactor, metric.Namespace.Strings(), stats))
+
+	}
+
+}
+
+/*
 // Process processes the data, inputs the data into this' buffer and calls the descriptive statistics method
 func (p *Plugin) Process(metrics []plugin.Metric, cfg plugin.Config) ([]plugin.Metric, error) {
-	/* f, err := os.OpenFile("/tmp/statisticErr.txt", os.O_WRONLY|os.O_CREATE, 0755)
-	if err != nil {
-		log.Warn("File reading error.")
-	}
-
-	log.SetOutput(f) */
 
 	bufsize, err := cfg.GetInt("SlidingWindowLength")
 	p.bufferMaxSize = int(bufsize)
@@ -346,4 +406,6 @@ func (p *Plugin) Process(metrics []plugin.Metric, cfg plugin.Config) ([]plugin.M
 	}
 
 	return results, nil
+
 }
+*/
