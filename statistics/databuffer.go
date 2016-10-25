@@ -29,9 +29,9 @@ import (
 
 //Contains a slice of data
 type dataBuffer struct {
-	data            buffer
-	dataByTimestamp buffer
-	index           int
+	data                      buffer
+	dataByTimestamp           buffer
+	index, slidingFactorIndex int
 }
 type buffer []*data
 
@@ -89,9 +89,8 @@ func SetFlags(stats []string) (flag Flag, err error) {
 		case "median":
 			flag.Median = true
 		case "standard_deviation":
-			flag.Variance, flag.StandardDeviation = true, true
+			flag.StandardDeviation = true
 		case "variance":
-			flag.Mean = true
 			flag.Variance = true
 		case "95%_ile":
 			flag.NinetyFifthPercentile = true
@@ -114,29 +113,18 @@ func SetFlags(stats []string) (flag Flag, err error) {
 		case "maximum":
 			flag.Maximum = true
 		case "range":
-			//flag.Maximum = true
-			//flag.Minimum = true
 			flag.Range = true
 		case "mode":
 			flag.Mode = true
 		case "kurtosis":
-			flag.Mean = true
-			flag.StandardDeviation = true
 			flag.Kurtosis = true
 		case "skewness":
-			flag.Mean = true
-			flag.StandardDeviation = true
 			flag.Skewness = true
 		case "sum":
 			flag.Sum = true
 		case "trimean":
-			flag.FirstQuartile = true
-			flag.Median = true
-			flag.ThirdQuartile = true
 			flag.Trimean = true
 		case "quartile_range":
-			//flag.FirstQuartile = true
-			//flag.ThirdQuartile = true
 			flag.QuartileRange = true
 		case "first_quartile":
 			flag.FirstQuartile = true
@@ -171,18 +159,28 @@ func (d *dataBuffer) GetStats(stats []string, ns []string) ([]plugin.Metric, err
 	var metric plugin.Metric
 	nsPrefix := []string{"intel", "statistics"}
 	tags := d.GetTags()
-	bufferSize := len(d.data)
 	var (
 		count, sum, mean, median, minimum, maximum, Range, variance,
-		standarddeviation, mode, kurtosis, skewness, trimean,
+		standarddeviation, kurtosis, skewness, trimean,
 		firstquartile, thirdquartile, quartilerange,
 		secondpercentile, ninthpercentile, twentyfifthpercentile, seventyfifthpercentile,
 		ninetyfirstpercentile, ninetyfifthpercentile, ninetyeighthpercentile,
 		ninetyninthpercentile float64
 	)
+	var mode []float64
+
 	flag, err := SetFlags(stats)
 	if err != nil {
 		return nil, err
+	}
+
+	if flag.Mode {
+		mode = d.Mode()
+		for _, val := range mode {
+			metric = createMetric(val, tags)
+			metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("mode").AddDynamicElement("highestfreq", "Gives the highest number of occurences of a data value")
+			results = append(results, metric)
+		}
 	}
 
 	if flag.Sum {
@@ -192,135 +190,167 @@ func (d *dataBuffer) GetStats(stats []string, ns []string) ([]plugin.Metric, err
 		results = append(results, metric)
 	}
 
-	if flag.Range || flag.Minimum {
+	if flag.Minimum || flag.Range {
 		minimum = d.Minimum()
 		if flag.Minimum {
-			metric = createMetric(sum, tags)
+			metric = createMetric(minimum, tags)
 			metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("minimum")
 			results = append(results, metric)
 		}
 	}
 
-	if flag.Range || flag.Maximum {
+	if flag.Maximum || flag.Range {
 		maximum = d.Maximum()
 		if flag.Maximum {
-			ns := plugin.NewNamespace(nsPrefix).AddStaticElements(ns).AddStaticElement("maximum")
-			results = append(results, createMetric(maximum))
+			metric = createMetric(maximum, tags)
+			metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("maximum")
+			results = append(results, metric)
 		}
 	}
 	if flag.Range {
-		Range = d.Range(Minimum, Maximum)
-		// create metric range
+		Range = d.Range(minimum, maximum)
+		metric = createMetric(Range, tags)
+		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("range")
+		results = append(results, metric)
 	}
 
-	if flag.Mean {
-		Mean = d.Mean(Sum, Count)
-		// create metric mean
-	}
-
-	if flag.Median {
-		Median = d.Median()
-		//create metric median
-	}
-
-	if flag.QuartileRange || flag.FirstQuartile {
-		FirstQuartile = d.FirstQuartile()
-		if flag.FirstQuartile {
-			// create metric first quartile
+	if flag.Mean || flag.Kurtosis || flag.Skewness {
+		mean = d.Mean(sum, count)
+		if flag.Mean {
+			metric = createMetric(mean, tags)
+			metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("mean")
+			results = append(results, metric)
 		}
 	}
 
-	if flag.QuartileRange || flag.ThirdQuartile {
-		ThirdQuartile = d.ThirdQuartile()
+	if flag.Median || flag.Trimean {
+		median = d.Median()
+		if flag.Median {
+			metric = createMetric(median, tags)
+			metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("median")
+			results = append(results, metric)
+		}
+	}
+
+	if flag.FirstQuartile || flag.QuartileRange || flag.Trimean {
+		firstquartile = d.FirstQuartile()
+		if flag.FirstQuartile {
+			metric = createMetric(firstquartile, tags)
+			metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("firstquartile")
+			results = append(results, metric)
+		}
+	}
+
+	if flag.ThirdQuartile || flag.QuartileRange || flag.Trimean {
+		thirdquartile = d.ThirdQuartile()
 		if flag.ThirdQuartile {
-			// create metric third quartile
+			metric = createMetric(thirdquartile, tags)
+			metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("thirdquartile")
+			results = append(results, metric)
 		}
 	}
 	if flag.QuartileRange {
-		QuartileRange = d.Range(FirstQuartile, ThirdQuartile)
-		// create metric range
+		quartilerange = d.Range(firstquartile, thirdquartile)
+		metric = createMetric(quartilerange, tags)
+		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("quartilerange")
+		results = append(results, metric)
 	}
 
-	if flag.Variance || flag.Mean {
-		Mean = d.Mean(Sum, Count)
+	if flag.Mean || flag.Variance {
+		mean = d.Mean(sum, count)
 		if flag.Mean {
-			// create metric mean
+			metric = createMetric(mean, tags)
+			metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("mean")
+			results = append(results, metric)
 		}
 	}
 
-	if flag.Variance {
-		Variance = d.Variance(Mean)
-		// create metric variance
-	}
-
-	if flag.StandardDeviation || flag.Variance {
-		Variance = d.Variance(Mean)
+	if flag.Variance || flag.StandardDeviation || flag.Skewness || flag.Kurtosis {
+		variance = d.Variance(mean)
 		if flag.Variance {
-			// create metric variance
+			metric = createMetric(variance, tags)
+			metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("variance")
+			results = append(results, metric)
 		}
 	}
 
 	if flag.SecondPercentile {
-		SecondPercentile = d.PercentileNearestRank(2)
-		// create metric second percentile
+		secondpercentile = d.PercentileNearestRank(2)
+		metric = createMetric(secondpercentile, tags)
+		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("secondpercentile")
+		results = append(results, metric)
 	}
 
 	if flag.NinthPercentile {
-		NinthPercentile = d.PercentileNearestRank(9)
-		// create metric ninth percentile
+		ninthpercentile = d.PercentileNearestRank(9)
+		metric = createMetric(ninthpercentile, tags)
+		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("ninthpercentile")
+		results = append(results, metric)
 	}
 
 	if flag.TwentyFifthPercentile {
-		TwentyFifthPercentile = d.PercentileNearestRank(25)
-		// create metric twenty fifth percentile
+		twentyfifthpercentile = d.PercentileNearestRank(25)
+		metric = createMetric(twentyfifthpercentile, tags)
+		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("twentyfifthpercentile")
+		results = append(results, metric)
 	}
 
 	if flag.SeventyFifthPercentile {
-		SeventyFifthPercentile = d.PercentileNearestRank(75)
-		// create metric seventy fifth percentile
+		seventyfifthpercentile = d.PercentileNearestRank(75)
+		metric = createMetric(seventyfifthpercentile, tags)
+		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("seventyfifthpercentile")
+		results = append(results, metric)
 	}
 
 	if flag.NinetyFirstPercentile {
-		NinetyFirstPercentile = d.PercentileNearestRank(91)
-		// create metric ninety first percentile
+		ninetyfirstpercentile = d.PercentileNearestRank(91)
+		metric = createMetric(ninetyfirstpercentile, tags)
+		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("ninetyfirstpercentile")
+		results = append(results, metric)
 	}
 
 	if flag.NinetyEighthPercentile {
-		NinetyEighthPercentile = d.PercentileNearestRank(98)
-		// create metric ninety eighth percentile
+		ninetyeighthpercentile = d.PercentileNearestRank(98)
+		metric = createMetric(ninetyeighthpercentile, tags)
+		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("ninetyeighthpercentile")
+		results = append(results, metric)
 	}
 
 	if flag.NinetyFifthPercentile {
-		NinetyFifthPercentile = d.PercentileNearestRank(95)
-		// create metric ninety first percentile
+		ninetyfifthpercentile = d.PercentileNearestRank(95)
+		metric = createMetric(ninetyfifthpercentile, tags)
+		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("ninetyfifthpercentile")
+		results = append(results, metric)
 	}
 
 	if flag.NinetyNinthPercentile {
-		NinetyNinthPercentile = d.PercentileNearestRank(99)
-		// create metric ninety ninth percentile
+		ninetyninthpercentile = d.PercentileNearestRank(99)
+		metric = createMetric(ninetyninthpercentile, tags)
+		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("ninetyninthpercentile")
+		results = append(results, metric)
 	}
 
 	if flag.Skewness {
-		Skewness = d.Skewness(Mean, StandardDeviation)
-		// create metric skewness percentile
+		skewness = d.Skewness(mean, standarddeviation)
+		metric = createMetric(skewness, tags)
+		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("skewness")
+		results = append(results, metric)
 	}
 
 	if flag.Kurtosis {
-		Kurtosis = d.Kurtosis(Mean, StandardDeviation)
-		// create metric kurtosis percentile
+		kurtosis = d.Kurtosis(mean, standarddeviation)
+		metric = createMetric(kurtosis, tags)
+		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("kurtosis")
+		results = append(results, metric)
 	}
 
-	// metric := plugin.Metric{
-	// 	Data:      val,
-	// 	Namespace: plugin.NewNamespace(namespace, stat).AddDynamicElement("Window count", "This is the Nth window"),
-	// 	Timestamp: time,
-	// 	Unit:      unit,
-	// 	Tags:      tags,
-	// }
-
-	// results = append(results, metric)
-
-	//return
+	if flag.Trimean {
+		trimean = d.Trimean(firstquartile, median, thirdquartile)
+		metric = createMetric(trimean, tags)
+		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("trimean")
+		results = append(results, metric)
+	}
+	return results, err
 }
 
 func (d *dataBuffer) Sum() (sum float64) {
@@ -386,10 +416,6 @@ func (d *dataBuffer) PercentileNearestRank(percent float64) float64 {
 	if percent < 0 || percent > 100 {
 		return math.NaN()
 	}
-	//return the last item
-	// if percent == 100.0 {
-	// 	return d.data[l-1].value
-	// }
 
 	//find the ordinal ranking
 	or := int(math.Ceil(float64(l) * percent / 100.0))

@@ -61,22 +61,60 @@ func TestStatisticsProcessor(t *testing.T) {
 	})
 }
 
+// func TestStats(t *testing.T) {
+// 	data := [10]float64{5, 12, 7, 9, 33, 53, 24, 16, 18, 1}
+
+// 	//should these timestamps be sorted already
+// 	time := [10]time.Time{time.Now().Add(12 * time.Hour),
+// 		time.Now().Add(22 * time.Hour),
+// 		time.Now().Add(9 * time.Hour),
+// 		time.Now().Add(10 * time.Hour),
+// 		time.Now().Add(1 * time.Hour),
+// 		time.Now().Add(2 * time.Hour),
+// 		time.Now().Add(3 * time.Hour),
+// 		time.Now().Add(5 * time.Hour),
+// 		time.Now().Add(6 * time.Hour),
+// 		time.Now().Add(7 * time.Hour),
+// 	}
+// var buffer dataBuffer
+// for i := range  {
+// 	buffer.Insert(data[i],time[i])
+// }
+
+// 	buffer.Sum()
+// }
+
 func TestStatisticsProcessorMetrics(t *testing.T) {
 	Convey("Statistics Processor tests", t, func() {
 		metrics := make([]plugin.Metric, 10)
-		data := [10]float64{5, 12, 7, 9, 33, 53, 24, 16, 18, 1}
+		var stats []plugin.Metric
+		var err error
+		//data := [10]float64{5, 12, 7, 9, 33, 53, 24, 16, 18, 1}
+		data := []float64{33, 53, 24, 16, 18, 1, 7, 9, 5, 12}
 
-		time := [10]time.Time{time.Now().Add(12 * time.Hour),
-			time.Now().Add(22 * time.Hour),
-			time.Now().Add(9 * time.Hour),
-			time.Now().Add(10 * time.Hour),
-			time.Now().Add(1 * time.Hour),
+		time := [10]time.Time{time.Now().Add(1 * time.Hour),
 			time.Now().Add(2 * time.Hour),
 			time.Now().Add(3 * time.Hour),
 			time.Now().Add(5 * time.Hour),
 			time.Now().Add(6 * time.Hour),
 			time.Now().Add(7 * time.Hour),
+			time.Now().Add(9 * time.Hour),
+			time.Now().Add(10 * time.Hour),
+			time.Now().Add(12 * time.Hour),
+			time.Now().Add(22 * time.Hour),
 		}
+
+		// time := [10]time.Time{time.Now().Add(12 * time.Hour),
+		// 	time.Now().Add(22 * time.Hour),
+		// 	time.Now().Add(9 * time.Hour),
+		// 	time.Now().Add(10 * time.Hour),
+		// 	time.Now().Add(1 * time.Hour),
+		// 	time.Now().Add(2 * time.Hour),
+		// 	time.Now().Add(3 * time.Hour),
+		// 	time.Now().Add(5 * time.Hour),
+		// 	time.Now().Add(6 * time.Hour),
+		// 	time.Now().Add(7 * time.Hour),
+		// }
 		config := plugin.Config{}
 		config["SlidingWindowLength"] = int64(5)
 
@@ -84,18 +122,17 @@ func TestStatisticsProcessorMetrics(t *testing.T) {
 
 		Convey("Statistics for float64 data", func() {
 			for i := range metrics {
+				statisticsObj := New()
+				stats, err = statisticsObj.Process(metrics, config)
+				if err != nil {
+					log.Fatal(err)
+				}
+
 				metrics[i] = plugin.Metric{
 					Data:      data[i],
 					Namespace: plugin.NewNamespace("foo", "bar"),
 					Timestamp: time[i],
 				}
-			}
-
-			statisticsObj := New()
-			stats, err := statisticsObj.Process(metrics, config)
-
-			if err != nil {
-				log.Fatal(err)
 			}
 
 			modes := [][]float64{[]float64{33}, empty, empty, empty, empty, empty, empty, empty, empty, empty}
@@ -122,12 +159,19 @@ func TestStatisticsProcessorMetrics(t *testing.T) {
 			expected["trimean"] = []float64{math.NaN(), math.NaN(), 35.75, 30, 27, 20.75, 14.25, 9.75, 7.625, 6.875}
 			expected["range"] = []float64{0, 20, 29, 37, 37, 52, 23, 17, 17, 11}
 			expected["quartile_range"] = []float64{math.NaN(), 20, 29, 23, 26, 30, 17, 13, 10.5, 7.5}
+			expected["first_quartile"] = []float64{33, 33, 24, 16, 18, 16, 7, 7, 5, 5}
+			expected["third_quartile"] = []float64{33, 53, 53, 33, 33, 24, 18, 16, 9, 9}
 
 			//Tracks current location of results
 			count := 0
+			var ns string
 			for i, m := range stats {
 				//Captures the statistic being processed while ignoring the remaining portions of the namespace
-				ns := m.Namespace.Strings()[1]
+				dynamic, _ := m.Namespace.IsDynamic()
+				if dynamic {
+					nsSlice := m.Namespace.Strings()
+					ns = nsSlice[len(nsSlice)-1]
+				}
 
 				//If all 22 statistics have been compared, then increase metric count
 				if i%22 == 0 && i != 0 {
@@ -196,6 +240,10 @@ func TestStatisticsProcessorMetrics(t *testing.T) {
 					} else {
 						So(m.Data, ShouldAlmostEqual, expected["quartile_range"][count], 0.01)
 					}
+				case "first_quartile":
+					So(m.Data, ShouldAlmostEqual, expected["first_quartile"][count], 0.01)
+				case "third_quartile":
+					So(m.Data, ShouldAlmostEqual, expected["third_quartile"][count], 0.01)
 				default:
 					log.Println("Raw metric found")
 					log.Println("Data: %v", ns)
