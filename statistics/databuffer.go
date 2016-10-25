@@ -174,6 +174,13 @@ func (d *dataBuffer) GetStats(stats []string, ns []string) ([]plugin.Metric, err
 		return nil, err
 	}
 
+	if flag.Count {
+		count = d.Count()
+		metric = createMetric(count, tags)
+		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement("count")
+		results = append(results, metric)
+	}
+
 	if flag.Mode {
 		mode = d.Mode()
 		for _, val := range mode {
@@ -207,6 +214,7 @@ func (d *dataBuffer) GetStats(stats []string, ns []string) ([]plugin.Metric, err
 			results = append(results, metric)
 		}
 	}
+
 	if flag.Range {
 		Range = d.Range(minimum, maximum)
 		metric = createMetric(Range, tags)
@@ -240,7 +248,6 @@ func (d *dataBuffer) GetStats(stats []string, ns []string) ([]plugin.Metric, err
 			results = append(results, metric)
 		}
 	}
-
 	if flag.ThirdQuartile || flag.QuartileRange || flag.Trimean {
 		thirdquartile = d.ThirdQuartile()
 		if flag.ThirdQuartile {
@@ -249,6 +256,7 @@ func (d *dataBuffer) GetStats(stats []string, ns []string) ([]plugin.Metric, err
 			results = append(results, metric)
 		}
 	}
+
 	if flag.QuartileRange {
 		quartilerange = d.Range(firstquartile, thirdquartile)
 		metric = createMetric(quartilerange, tags)
@@ -353,32 +361,36 @@ func (d *dataBuffer) GetStats(stats []string, ns []string) ([]plugin.Metric, err
 	return results, err
 }
 
+func (d *dataBuffer) Count() int {
+	return len(d.data)
+}
 func (d *dataBuffer) Sum() (sum float64) {
 	for _, val := range d.data {
+		//fmt.Println("metric")
+		fmt.Println("sum is")
+		fmt.Println(sum)
 		sum += val.value
 	}
 	return
 }
 
-func (d *dataBuffer) Mean(sum, count float64) float64 {
-	return sum / count
+func (d *dataBuffer) Mean(sum float64, count int) float64 {
+	fmt.Printf("mean is")
+	fmt.Println(sum / float64(count))
+	return sum / float64(count)
 }
 
 func (d *dataBuffer) Minimum() (min float64) {
-	for _, val := range d.data {
-		if val.value < min {
-			min = val.value
-		}
-	}
+	min = d.data[0].value
+	fmt.Printf("min is")
+	fmt.Println(min)
 	return
 }
 
 func (d *dataBuffer) Maximum() (max float64) {
-	for _, val := range d.data {
-		if val.value > max {
-			max = val.value
-		}
-	}
+	fmt.Printf("max is")
+	max = d.data[len(d.data)-1].value
+	fmt.Println(max)
 	return
 }
 
@@ -495,7 +507,6 @@ func (d *dataBuffer) ThirdQuartile() (quartile float64) {
 	} else {
 		quartile = d.data[l/2].value
 	}
-	quartile = (d.data[c1/2-1].value + d.data[c1/2].value) / 2
 
 	return
 }

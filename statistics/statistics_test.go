@@ -24,6 +24,7 @@ package statistics
 import (
 	"log"
 	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -61,37 +62,13 @@ func TestStatisticsProcessor(t *testing.T) {
 	})
 }
 
-// func TestStats(t *testing.T) {
-// 	data := [10]float64{5, 12, 7, 9, 33, 53, 24, 16, 18, 1}
-
-// 	//should these timestamps be sorted already
-// 	time := [10]time.Time{time.Now().Add(12 * time.Hour),
-// 		time.Now().Add(22 * time.Hour),
-// 		time.Now().Add(9 * time.Hour),
-// 		time.Now().Add(10 * time.Hour),
-// 		time.Now().Add(1 * time.Hour),
-// 		time.Now().Add(2 * time.Hour),
-// 		time.Now().Add(3 * time.Hour),
-// 		time.Now().Add(5 * time.Hour),
-// 		time.Now().Add(6 * time.Hour),
-// 		time.Now().Add(7 * time.Hour),
-// 	}
-// var buffer dataBuffer
-// for i := range  {
-// 	buffer.Insert(data[i],time[i])
-// }
-
-// 	buffer.Sum()
-// }
-
 func TestStatisticsProcessorMetrics(t *testing.T) {
 	Convey("Statistics Processor tests", t, func() {
 		metrics := make([]plugin.Metric, 10)
 		var stats []plugin.Metric
 		var err error
-		//data := [10]float64{5, 12, 7, 9, 33, 53, 24, 16, 18, 1}
 		data := []float64{33, 53, 24, 16, 18, 1, 7, 9, 5, 12}
-
+		//Sorted data : 1, 5, 7, 9, 12, 16, 18, 24, 33, 53
 		time := [10]time.Time{time.Now().Add(1 * time.Hour),
 			time.Now().Add(2 * time.Hour),
 			time.Now().Add(3 * time.Hour),
@@ -116,36 +93,45 @@ func TestStatisticsProcessorMetrics(t *testing.T) {
 		// 	time.Now().Add(7 * time.Hour),
 		// }
 		config := plugin.Config{}
-		config["SlidingWindowLength"] = int64(5)
+		config["slidingWindowLength"] = int64(5)
+		config["slidingFactor"] = int64(1)
+		config["statistics"] = strings.Join(statList, ",")
 
 		empty := []float64{}
 
 		Convey("Statistics for float64 data", func() {
+			statisticsObj := New()
 			for i := range metrics {
-				statisticsObj := New()
-				stats, err = statisticsObj.Process(metrics, config)
+				mts := []plugin.Metric{plugin.Metric{
+					Data:      data[i],
+					Namespace: plugin.NewNamespace("foo", "bar"),
+					Timestamp: time[i],
+					Config:    config,
+				}}
+				stats, err = statisticsObj.Process(mts, config)
 				if err != nil {
 					log.Fatal(err)
 				}
 
-				metrics[i] = plugin.Metric{
-					Data:      data[i],
-					Namespace: plugin.NewNamespace("foo", "bar"),
-					Timestamp: time[i],
-				}
 			}
-
+			//Sorted data : 1, 5, 7, 9, 12, 16, 18, 24, 33, 53
 			modes := [][]float64{[]float64{33}, empty, empty, empty, empty, empty, empty, empty, empty, empty}
 
 			expected := make(map[string][]float64)
+			//MAIN: expected["count"] = []float64{1, 2, 3, 4, 5, 5, 5, 5, 5, 5}
+			//MAIN: expected["maximum"] = []float64{33, 53, 53, 53, 53, 53, 24, 18, 18, 12}
+			//MAIN: expected["minimum"] = []float64{33, 33, 24, 16, 16, 1, 1, 1, 1, 1}
+			//MAIN: expected["mean"] = []float64{33, 43, 36.66666667, 31.5, 28.8, 22.4, 13.2, 10.2, 8, 6.8}
+			//MAIN: expected["median"] = []float64{33, 43, 33, 28.5, 24, 18, 16, 9, 7, 7}
+			//MAIN: expected["sum"] = []float64{33, 86, 110, 126, 144, 112, 66, 51, 40, 34}
 			expected["count"] = []float64{1, 2, 3, 4, 5, 5, 5, 5, 5, 5}
-			expected["mean"] = []float64{33, 43, 36.66666667, 31.5, 28.8, 22.4, 13.2, 10.2, 8, 6.8}
-			expected["median"] = []float64{33, 43, 33, 28.5, 24, 18, 16, 9, 7, 7}
-			expected["sum"] = []float64{33, 86, 110, 126, 144, 112, 66, 51, 40, 34}
+			expected["minimum"] = []float64{33, 33, 24, 16, 16, 1, 1, 1, 1, 1}
+			expected["maximum"] = []float64{33, 53, 53, 53, 53, 53, 24, 18, 18, 12}
+			expected["mean"] = []float64{1, 3, 4.33, 5.5, 6.8, 9.8, 12.4, 15.8, 20.6, 28.8}
+			expected["median"] = []float64{1, 3, 5, 6, 7, 9, 12, 16, 18, 24}
+			expected["sum"] = []float64{1, 6, 13, 22, 34, 49, 62, 79, 103, 144}
 			expected["standard_deviation"] = []float64{0, 10, 12.120, 13.793, 13.467, 17.072, 8.183, 6.177, 5.657, 3.709}
 			expected["variance"] = []float64{0, 100, 146.889, 190.25, 181.36, 291.44, 66.96, 38.16, 32, 13.76}
-			expected["maximum"] = []float64{33, 53, 53, 53, 53, 53, 24, 18, 18, 12}
-			expected["minimum"] = []float64{33, 33, 24, 16, 16, 1, 1, 1, 1, 1}
 			expected["99%_ile"] = []float64{33, 53, 53, 53, 53, 53, 24, 18, 18, 12}
 			expected["95%_ile"] = []float64{33, 53, 53, 53, 53, 53, 24, 18, 18, 12}
 			expected["2%_ile"] = []float64{33, 33, 24, 16, 16, 1, 1, 1, 1, 1}
@@ -168,8 +154,10 @@ func TestStatisticsProcessorMetrics(t *testing.T) {
 			for i, m := range stats {
 				//Captures the statistic being processed while ignoring the remaining portions of the namespace
 				dynamic, _ := m.Namespace.IsDynamic()
+				nsSlice := m.Namespace.Strings()
 				if dynamic {
-					nsSlice := m.Namespace.Strings()
+					ns = nsSlice[len(nsSlice)-2]
+				} else {
 					ns = nsSlice[len(nsSlice)-1]
 				}
 
@@ -257,7 +245,7 @@ func TestStatisticsProcessorMetrics(t *testing.T) {
 		Convey("Statistics for unknown data type", func() {
 			for i := range metrics {
 
-				data := "I am an unknow data Type"
+				data := "I am an unknown data Type"
 				metrics[i] = plugin.Metric{
 					Data:      data,
 					Namespace: plugin.NewNamespace("foo", "bar"),
