@@ -32,11 +32,7 @@ type Plugin struct {
 
 const (
 	Name    = "statistics"
-	Version = 2
-)
-
-var (
-	statList = []string{"count", "mean", "median", "standard_deviation", "variance", "95%_ile", "99%_ile", "2%_ile", "9%_ile", "25%_ile", "75%_ile", "91%_ile", "98%_ile", "minimum", "maximum", "range", "mode", "kurtosis", "skewness", "sum", "trimean", "first_quartile", "third_quartile", "quartile_range"}
+	Version = 3
 )
 
 // New() returns a new instance of this
@@ -57,14 +53,15 @@ func (p *Plugin) GetConfigPolicy() (plugin.ConfigPolicy, error) {
 
 }
 
+// Process processes the data, inputs the data into sorted buffer and calls the GetStats method
 func (p *Plugin) Process(metrics []plugin.Metric, cfg plugin.Config) ([]plugin.Metric, error) {
 	var result []plugin.Metric
-	for _, metric := range metrics {
-		slidingWindowLength, slidingFactor, stats, err := GetConfig(metric.Config)
-		if err != nil {
-			return nil, err
-		}
+	slidingWindowLength, slidingFactor, stats, err := GetConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
 
+	for _, metric := range metrics {
 		// convert any number to float64
 		floatValue, err := dataToFloat64(metric.Data)
 		if err != nil {
@@ -75,10 +72,11 @@ func (p *Plugin) Process(metrics []plugin.Metric, cfg plugin.Config) ([]plugin.M
 		ns := strings.Join(nsSlice, "")
 		_, ok := p.buffer[ns]
 		if !ok {
-			//buffer doesn't exist, so create one
+			//if there is no buffer for this particular namespace, then we create a new one
 			p.buffer[ns] = &dataBuffer{
 				data:            make([]*data, 0, slidingWindowLength),
 				dataByTimestamp: make([]*data, 0, slidingWindowLength)}
+
 		} else {
 			if slidingWindowLength != cap(p.buffer[ns].data) {
 				// TODO: test if buffer size from the config is different than cap(p.buffer[ns])
@@ -86,9 +84,8 @@ func (p *Plugin) Process(metrics []plugin.Metric, cfg plugin.Config) ([]plugin.M
 		}
 
 		p.buffer[ns].Insert(floatValue, metric.Timestamp)
-
+		// add a new element to the sorted list
 		if p.buffer[ns].slidingFactorIndex%slidingFactor == 0 {
-			// add a new element to the sorted list
 			mts, err := p.buffer[ns].GetStats(stats, nsSlice)
 			if err != nil {
 				return nil, err
@@ -100,11 +97,12 @@ func (p *Plugin) Process(metrics []plugin.Metric, cfg plugin.Config) ([]plugin.M
 	return result, nil
 }
 
+// GetConfig returns the config policy
 func GetConfig(cfg plugin.Config) (slidingWinLen, slidingFac int, statistics []string, err error) {
 	var stats string
 	stats, err = cfg.GetString("statistics")
 	if err != nil {
-		err = fmt.Errorf("%v: \"statistics\"", err)
+		err = fmt.Errorf("\"statistics\": %v", err)
 		return
 	}
 	statistics = strings.Split(stats, ",")
@@ -112,49 +110,49 @@ func GetConfig(cfg plugin.Config) (slidingWinLen, slidingFac int, statistics []s
 
 	tmp, err = cfg.GetInt("slidingWindowLength")
 	if err != nil {
-		err = fmt.Errorf("%v: \"slidingwindowlenght\"", err)
+		err = fmt.Errorf("\"slidingwindowlength\": %v", err)
 		return
 	}
 	slidingWinLen = int(tmp)
 	tmp, err = cfg.GetInt("slidingFactor")
 	if err != nil {
-		err = fmt.Errorf("%v: \"slidingfactor\"", err)
+		err = fmt.Errorf("\"slidingfactor\": %v", err)
 		return
 	}
 	slidingFac = int(tmp)
 
-	errString := ""
-
 	if slidingFac > slidingWinLen {
-		errString += "Sliding Factor is greater than window length and it shouldn't be\n"
-	}
-
-	if errString != "" {
-		err = fmt.Errorf(errString)
+		err = fmt.Errorf("Sliding Factor is greater than window length and it shouldn't be")
 	}
 	return
 }
 
+// converts data to float64 type
 func dataToFloat64(data interface{}) (float64, error) {
-	var buffer float64
-	switch v := data.(type) {
-	case int:
-		buffer = float64(data.(int))
-	case int32:
-		buffer = float64(data.(int32))
-	case int64:
-		buffer = float64(data.(int64))
-	case float64:
-		buffer = data.(float64)
-	case float32:
-		buffer = float64(data.(float32))
-	case uint64:
-		buffer = float64(data.(uint64))
-	case uint32:
-		buffer = float64(data.(uint32))
-	default:
-		st := fmt.Sprintf("Unknown data received in calculateStats(): Type %T", v)
-		return 0, errors.New(st)
+	var value float64
+	if data == nil {
+		e := fmt.Sprintf("Data is empty : Type %T", data)
+		return 0, errors.New(e)
+	} else if data != nil {
+		switch v := data.(type) {
+		case int:
+			value = float64(data.(int))
+		case int32:
+			value = float64(data.(int32))
+		case int64:
+			value = float64(data.(int64))
+		case float64:
+			value = data.(float64)
+		case float32:
+			value = float64(data.(float32))
+		case uint64:
+			value = float64(data.(uint64))
+		case uint32:
+			value = float64(data.(uint32))
+		default:
+			st := fmt.Sprintf("Unknown data received in calculateStats(): Type %T", v)
+			return 0, errors.New(st)
+		}
 	}
-	return buffer, nil
+	return value, nil
 }
