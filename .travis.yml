@@ -3,7 +3,7 @@ sudo: false
 language: go
 go:
 - 1.6.3
-- 1.7.1
+- 1.7.3
 env:
   global:
   - ORG_PATH=/home/travis/gopath/src/github.com/intelsdi-x
@@ -42,7 +42,7 @@ deploy:
   on:
     repo: intelsdi-x/snap-plugin-processor-statistics
     branch: master
-    condition: $TEST_TYPE = "build" && $TRAVIS_GO_VERSION = "1.7.1"
+    condition: $TEST_TYPE = "build" && $TRAVIS_GO_VERSION = "1.7.3"
 - provider: s3
   access_key_id: AKIAINMB43VSSPFZISAA
   secret_access_key:
@@ -56,14 +56,15 @@ deploy:
   on:
     repo: intelsdi-x/snap-plugin-processor-statistics
     tags: true
-    condition: $TEST_TYPE = "build" && $TRAVIS_GO_VERSION = "1.7.1"
+    condition: $TEST_TYPE = "build" && $TRAVIS_GO_VERSION = "1.7.3"
 - provider: releases
   api_key:
     secure: fVZ/wVGNcCLUDOGJld13wRs/CQYD5WvxWV3OsmqTj14CZsdNJlaYzl+nzKQHwcgaADuZS3z0oEuaCPIG3BGKUp3y65wKZqnZJZYpIrig/egQ7iSCJKVfrMWTgGtyzEcguSvgR11y9Dar5AfOoe0OdE0q+0MdesxwVDdjvHA4hCKR1fBNVkeYLJkgn9GWGkO3NYY3MDpTip+2EQ2L3kRaAbjJ/THwAnTB4AS0HFH04Iem+IzklvXJlAB8zXO/CssjbbhDZkYtnXxf9bRxSL1pMn+y4m+q50y2P643bSDdwSoxNkNkpuHC2DXiTblzJmgyAN/up2J5He9PmeGCLxOI/sO6LuKSAB5DBYKAQrgGBaEd9EQygvyPuZ1EnTFSH0/Dka2HWTlZZhHaMti8czqoOndqlkp7qysTqQczbnKSUhwBPj3DPMN4MRPcx4l5ZTFcJkIMfc0CoOnbgHeoTsvknBCfp843R4J2i5gJNBw7OO9xb7ILFztMI4VBaeMUzEnipSHcSYSrawyC6NxVfbI1oOmaWxVTOrKYzN0uwHYcc5AA5wmkkpIRdJiqOGGEOeYCh2qBmxZmsyuyVhcKFDgK070KiypbnFQEkP2eguRb+PingKBiEWKBshe3NsPYD09c8PKEbhB8fRWRo31QEXDLnKkQOUG/pgqVOn4GI3IGliw=
   file:
     - release/snap-plugin-processor-statistics_linux_x86_64
+    - release/snap-plugin-processor-statistics_darwin_x86_64
   skip_cleanup: true
   on:
     repo: intelsdi-x/snap-plugin-processor-statistics
     tags: true
-    condition: $TEST_TYPE = "build" && $TRAVIS_GO_VERSION = "1.7.1"
+    condition: $TEST_TYPE = "build" && $TRAVIS_GO_VERSION = "1.7.3"
