@@ -1,3 +1,11 @@
+---
+:global:
+  build:
+    matrix:
+      - GOOS: linux
+        GOARCH: amd64
+      - GOOS: darwin
+        GOARCH: amd64
 .travis.yml:
   deploy:
     access_key_id: AKIAINMB43VSSPFZISAA
