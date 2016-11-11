@@ -161,12 +161,25 @@ func SetFlags(stats []string) (flag Flag, err error) {
 }
 
 // Creates a metric for each statistic
-func createMetric(data interface{}, tags map[string]string) plugin.Metric {
-	return plugin.Metric{
+func createMetric(result *[]plugin.Metric, data float64, tags map[string]string, ns plugin.Namespace) {
+	if !math.IsNaN(data) {
+		*result = append(*result, plugin.Metric{
+			Timestamp: time.Now(),
+			Tags:      tags,
+			Data:      data,
+			Namespace: ns,
+		})
+	}
+}
+
+// Creates a metric for each statistic
+func createMetricInt(result *[]plugin.Metric, data int, tags map[string]string, ns plugin.Namespace) {
+	*result = append(*result, plugin.Metric{
 		Timestamp: time.Now(),
 		Tags:      tags,
 		Data:      data,
-	}
+		Namespace: ns,
+	})
 }
 
 // Get tags which are start time and stop time
@@ -181,7 +194,6 @@ func (b *dataBuffer) GetTags() map[string]string {
 // Checks if flag is true and calls the appropriate process functions
 func (d *dataBuffer) GetStats(stats []string, ns []string) ([]plugin.Metric, error) {
 	var results []plugin.Metric
-	var metric plugin.Metric
 	nsPrefix := []string{"intel", "statistics"}
 	tags := d.GetTags()
 
@@ -205,107 +217,81 @@ func (d *dataBuffer) GetStats(stats []string, ns []string) ([]plugin.Metric, err
 
 	if flag.Count {
 		result.count = d.Count()
-		metric = createMetric(result.count, tags)
-		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(count)
-		results = append(results, metric)
+		createMetricInt(&results, result.count, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(count))
 	}
 
 	if flag.Sum {
 		result.sum = d.Sum()
-		metric = createMetric(result.sum, tags)
-		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(sum)
-		results = append(results, metric)
+		createMetric(&results, result.sum, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(sum))
 	}
 
 	if flag.Minimum || flag.Range {
 		result.minimum = d.Minimum()
 		if flag.Minimum {
-			metric = createMetric(result.minimum, tags)
-			metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(minimum)
-			results = append(results, metric)
+			createMetric(&results, result.minimum, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(minimum))
 		}
 	}
 
 	if flag.Maximum || flag.Range {
 		result.maximum = d.Maximum()
 		if flag.Maximum {
-			metric = createMetric(result.maximum, tags)
-			metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(maximum)
-			results = append(results, metric)
+			createMetric(&results, result.maximum, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(maximum))
 		}
 	}
 
 	if flag.Range {
 		result.Range = d.Range(result.minimum, result.maximum)
-		metric = createMetric(result.Range, tags)
-		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(rangeval)
-		results = append(results, metric)
+		createMetric(&results, result.Range, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(rangeval))
 	}
 
 	if flag.Mean || flag.Kurtosis || flag.Skewness || flag.Variance {
 		result.mean = d.Mean(result.sum, result.count)
 		if flag.Mean {
-			metric = createMetric(result.mean, tags)
-			metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(mean)
-			results = append(results, metric)
+			createMetric(&results, result.mean, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(mean))
 		}
 	}
 
 	if flag.Median || flag.Trimean {
 		result.median = d.Median()
 		if flag.Median {
-			metric = createMetric(result.median, tags)
-			metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(median)
-			results = append(results, metric)
+			createMetric(&results, result.median, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(median))
 		}
 	}
 	if flag.Mode {
 		modes := d.Mode()
 		for _, val := range modes {
-			metric = createMetric(val, tags)
-			metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(mode).AddDynamicElement("highestfreq", "Gives the highest number of occurences of a data value")
-			results = append(results, metric)
+			createMetric(&results, val, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(mode).AddDynamicElement("highestfreq", "Gives the highest number of occurences of a data value"))
 		}
 	}
 
 	if flag.FirstQuartile || flag.QuartileRange || flag.Trimean {
 		result.firstquartile = d.FirstQuartile()
 		if flag.FirstQuartile {
-			metric = createMetric(result.firstquartile, tags)
-			metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(firstquartile)
-			results = append(results, metric)
+			createMetric(&results, result.firstquartile, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(firstquartile))
 		}
 	}
 	if flag.ThirdQuartile || flag.QuartileRange || flag.Trimean {
 		result.thirdquartile = d.ThirdQuartile()
 		if flag.ThirdQuartile {
-			metric = createMetric(result.thirdquartile, tags)
-			metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(thirdquartile)
-			results = append(results, metric)
+			createMetric(&results, result.thirdquartile, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(thirdquartile))
 		}
 	}
 
 	if flag.QuartileRange {
 		result.quartilerange = d.Range(result.firstquartile, result.thirdquartile)
-		metric = createMetric(result.quartilerange, tags)
-		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(quartilerange)
-		results = append(results, metric)
+		createMetric(&results, result.quartilerange, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(quartilerange))
 	}
 
 	if flag.Variance || flag.StandardDeviation || flag.Skewness || flag.Kurtosis {
 		result.variance = d.Variance(result.mean)
 		if flag.Variance {
-			metric = createMetric(result.variance, tags)
-			metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(variance)
-			results = append(results, metric)
+			createMetric(&results, result.variance, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(variance))
 		}
 	}
 
 	if flag.StandardDeviation {
 		result.standarddeviation = d.StandardDeviation(result.variance)
-		metric = createMetric(result.standarddeviation, tags)
-		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(standarddeviation)
-		results = append(results, metric)
+		createMetric(&results, result.standarddeviation, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(standarddeviation))
 	}
 
 	if flag.SecondPercentile {
@@ -314,9 +300,7 @@ func (d *dataBuffer) GetStats(stats []string, ns []string) ([]plugin.Metric, err
 			return nil, err
 		}
 
-		metric = createMetric(result.secondpercentile, tags)
-		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(secondpercentile)
-		results = append(results, metric)
+		createMetric(&results, result.secondpercentile, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(secondpercentile))
 	}
 
 	if flag.NinthPercentile {
@@ -324,9 +308,7 @@ func (d *dataBuffer) GetStats(stats []string, ns []string) ([]plugin.Metric, err
 		if err != nil {
 			return nil, err
 		}
-		metric = createMetric(result.ninthpercentile, tags)
-		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(ninthpercentile)
-		results = append(results, metric)
+		createMetric(&results, result.ninthpercentile, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(ninthpercentile))
 	}
 
 	if flag.TwentyFifthPercentile {
@@ -334,9 +316,7 @@ func (d *dataBuffer) GetStats(stats []string, ns []string) ([]plugin.Metric, err
 		if err != nil {
 			return nil, err
 		}
-		metric = createMetric(result.twentyfifthpercentile, tags)
-		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(twentyfifthpercentile)
-		results = append(results, metric)
+		createMetric(&results, result.twentyfifthpercentile, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(twentyfifthpercentile))
 	}
 
 	if flag.SeventyFifthPercentile {
@@ -344,9 +324,7 @@ func (d *dataBuffer) GetStats(stats []string, ns []string) ([]plugin.Metric, err
 		if err != nil {
 			return nil, err
 		}
-		metric = createMetric(result.seventyfifthpercentile, tags)
-		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(seventyfifthpercentile)
-		results = append(results, metric)
+		createMetric(&results, result.seventyfifthpercentile, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(seventyfifthpercentile))
 	}
 
 	if flag.NinetyFirstPercentile {
@@ -354,9 +332,7 @@ func (d *dataBuffer) GetStats(stats []string, ns []string) ([]plugin.Metric, err
 		if err != nil {
 			return nil, err
 		}
-		metric = createMetric(result.ninetyfirstpercentile, tags)
-		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(ninetyfirstpercentile)
-		results = append(results, metric)
+		createMetric(&results, result.ninetyfirstpercentile, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(ninetyfirstpercentile))
 	}
 
 	if flag.NinetyEighthPercentile {
@@ -364,9 +340,7 @@ func (d *dataBuffer) GetStats(stats []string, ns []string) ([]plugin.Metric, err
 		if err != nil {
 			return nil, err
 		}
-		metric = createMetric(result.ninetyeighthpercentile, tags)
-		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(ninetyeighthpercentile)
-		results = append(results, metric)
+		createMetric(&results, result.ninetyeighthpercentile, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(ninetyeighthpercentile))
 	}
 
 	if flag.NinetyFifthPercentile {
@@ -374,9 +348,7 @@ func (d *dataBuffer) GetStats(stats []string, ns []string) ([]plugin.Metric, err
 		if err != nil {
 			return nil, err
 		}
-		metric = createMetric(result.ninetyfifthpercentile, tags)
-		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(ninetyfifthpercentile)
-		results = append(results, metric)
+		createMetric(&results, result.ninetyfifthpercentile, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(ninetyfifthpercentile))
 	}
 
 	if flag.NinetyNinthPercentile {
@@ -384,36 +356,22 @@ func (d *dataBuffer) GetStats(stats []string, ns []string) ([]plugin.Metric, err
 		if err != nil {
 			return nil, err
 		}
-		metric = createMetric(result.ninetyninthpercentile, tags)
-		metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(ninetyninthpercentile)
-		results = append(results, metric)
+		createMetric(&results, result.ninetyninthpercentile, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(ninetyninthpercentile))
 	}
 
 	if flag.Skewness {
 		result.skewness = d.Skewness(result.mean, result.standarddeviation)
-		if result.skewness != math.NaN() {
-			metric = createMetric(result.skewness, tags)
-			metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(skewness)
-			results = append(results, metric)
-		}
+		createMetric(&results, result.skewness, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(skewness))
 	}
 
 	if flag.Kurtosis {
 		result.kurtosis = d.Kurtosis(result.mean, result.standarddeviation)
-		if result.kurtosis != math.NaN() {
-			metric = createMetric(result.kurtosis, tags)
-			metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(kurtosis)
-			results = append(results, metric)
-		}
+		createMetric(&results, result.kurtosis, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(kurtosis))
 	}
 
 	if flag.Trimean {
 		result.trimean = d.Trimean(result.firstquartile, result.median, result.thirdquartile)
-		if result.trimean != math.NaN() {
-			metric = createMetric(result.trimean, tags)
-			metric.Namespace = plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(trimean)
-			results = append(results, metric)
-		}
+		createMetric(&results, result.trimean, tags, plugin.NewNamespace(nsPrefix...).AddStaticElements(ns...).AddStaticElement(trimean))
 	}
 	return results, err
 }
