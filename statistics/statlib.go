@@ -30,7 +30,6 @@ func (d *dataBuffer) Minimum() float64 {
 
 // Returns the maximum value in the buffer
 func (d *dataBuffer) Maximum() float64 {
-
 	return d.data[len(d.data)-1].value
 }
 
@@ -160,7 +159,6 @@ func (d *dataBuffer) QuartileRange(firstquartile, thirdquartile float64) float64
 // Trimean finds the average of the median and the midhinge
 func (d *dataBuffer) Trimean(firstquartile, median, thirdquartile float64) float64 {
 	return (firstquartile + (median * 2) + thirdquartile) / 4
-
 }
 
 //Calculates the population skewness from the data buffer

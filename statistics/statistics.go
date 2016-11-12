@@ -19,7 +19,6 @@ limitations under the License.
 package statistics
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -130,9 +129,8 @@ func GetConfig(cfg plugin.Config) (slidingWinLen, slidingFac int, statistics []s
 func dataToFloat64(data interface{}) (float64, error) {
 	var value float64
 	if data == nil {
-		e := fmt.Sprintf("Data is empty : Type %T", data)
-		return 0, errors.New(e)
-	} else if data != nil {
+		return 0, fmt.Errorf("Data is empty : Type %T", data)
+	} else {
 		switch v := data.(type) {
 		case int:
 			value = float64(data.(int))
@@ -149,8 +147,7 @@ func dataToFloat64(data interface{}) (float64, error) {
 		case uint32:
 			value = float64(data.(uint32))
 		default:
-			st := fmt.Sprintf("Unknown data received in calculateStats(): Type %T", v)
-			return 0, errors.New(st)
+			return 0, fmt.Errorf("Unknown data received in calculateStats(): Type %T", v)
 		}
 	}
 	return value, nil
