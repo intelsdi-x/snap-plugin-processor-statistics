@@ -25,9 +25,7 @@ func (d *dataBuffer) Mean(sum float64, count int) float64 {
 
 // Returns the minimum value in the buffer
 func (d *dataBuffer) Minimum() float64 {
-
 	return d.data[0].value
-
 }
 
 // Returns the maximum value in the buffer
@@ -88,7 +86,6 @@ func (d *dataBuffer) PercentileNearestRank(percent float64) (float64, error) {
 		return d.data[0].value, nil
 	}
 	return d.data[or-1].value, nil
-
 }
 
 // Returns mode of the data buffer
@@ -157,13 +154,11 @@ func (d *dataBuffer) ThirdQuartile() (quartile float64) {
 
 // InterQuartileRange finds the range between first quartile and third quartile
 func (d *dataBuffer) QuartileRange(firstquartile, thirdquartile float64) float64 {
-
 	return thirdquartile - firstquartile
 }
 
 // Trimean finds the average of the median and the midhinge
 func (d *dataBuffer) Trimean(firstquartile, median, thirdquartile float64) float64 {
-
 	return (firstquartile + (median * 2) + thirdquartile) / 4
 
 }
@@ -177,7 +172,6 @@ func (d *dataBuffer) Skewness(mean, stdev float64) (skew float64) {
 	}
 
 	return 1.0 / float64(l) * skew
-
 }
 
 //Calculates the population kurtosis from the data buffer

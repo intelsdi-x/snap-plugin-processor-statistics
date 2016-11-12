@@ -74,9 +74,8 @@ func (p *Plugin) Process(metrics []plugin.Metric, cfg plugin.Config) ([]plugin.M
 		if !ok {
 			//if there is no buffer for this particular namespace, then we create a new one
 			p.buffer[ns] = &dataBuffer{
-				data:            make([]*data, 0, slidingWindowLength),
-				dataByTimestamp: make([]*data, 0, slidingWindowLength)}
-
+				data: make([]data, 0, slidingWindowLength),
+			}
 		} else {
 			if slidingWindowLength != cap(p.buffer[ns].data) {
 				// TODO: test if buffer size from the config is different than cap(p.buffer[ns])

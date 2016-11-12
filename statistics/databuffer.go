@@ -29,11 +29,11 @@ import (
 
 //dataBuffer contains 2 slices that point to buffer values:
 type dataBuffer struct {
-	data                      buffer //data is sorted by value
-	dataByTimestamp           buffer //dataByTimestamp is sorted by timestamp
-	index, slidingFactorIndex int    //sliding factor specifies how many data values to include over each sliding window
+	data                         buffer
+	slidingFactorIndex, old, new int //sliding factor specifies how many data values to include over each sliding window
 }
-type buffer []*data
+type buffer []data
+type byTimestamp []data
 
 //data holds the timestamp and the value (actual data)
 type data struct {
@@ -82,22 +82,25 @@ var (
 		secondpercentile, ninthpercentile, twentyfifthpercentile, seventyfifthpercentile, ninetyfirstpercentile, ninetyeighthpercentile, ninetyfifthpercentile, ninetyninthpercentile}
 )
 
-//functions to sort data
+//functions to sort by value
 func (a buffer) Len() int           { return len(a) }
 func (a buffer) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a buffer) Less(i, j int) bool { return a[i].value < a[j].value }
 
+//functions to sort by timestamp
+func (a byTimestamp) Len() int           { return len(a) }
+func (a byTimestamp) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a byTimestamp) Less(i, j int) bool { return a[i].ts.After(a[j].ts) }
+
 //Inserts data in a sorted order
 func (b *dataBuffer) Insert(value float64, ts time.Time) {
+	// sort by timestamp before inserting
+	sort.Sort(byTimestamp(b.data))
 	if len(b.data) < cap(b.data) {
-		element := &data{value: value, ts: ts}
-		b.data = append(b.data, element)
-		b.dataByTimestamp = append(b.dataByTimestamp, element)
+		b.data = append(b.data, data{value: value, ts: ts})
 	} else {
-		b.dataByTimestamp[b.index].ts, b.dataByTimestamp[b.index].value = ts, value
-		b.index = (b.index + 1) % cap(b.data)
+		b.data[0].ts, b.data[0].value = ts, value
 	}
-	sort.Sort(b.data)
 }
 
 //Set flags to true to be able to configure process functions
@@ -184,10 +187,8 @@ func createMetricInt(result *[]plugin.Metric, data int, tags map[string]string, 
 
 // Get tags which are start time and stop time
 func (b *dataBuffer) GetTags() map[string]string {
-	new := (b.index + len(b.data) - 1) % len(b.data)
-	old := b.index
-	oldTs := b.dataByTimestamp[old].ts
-	newTs := b.dataByTimestamp[new].ts
+	oldTs := b.data[0].ts
+	newTs := b.data[len(b.data)-1].ts
 	return map[string]string{"startTime": oldTs.String(), "stopTime": newTs.String()}
 }
 
@@ -197,6 +198,8 @@ func (d *dataBuffer) GetStats(stats []string, ns []string) ([]plugin.Metric, err
 	nsPrefix := []string{"intel", "statistics"}
 	tags := d.GetTags()
 
+	// sort by value to make statistics easier
+	sort.Sort(d.data)
 	var result struct {
 		sum, mean, median, minimum, maximum, Range, variance,
 		standarddeviation, kurtosis, skewness, trimean,
