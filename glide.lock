@@ -6,7 +6,7 @@ imports:
   subpackages:
   - proto
 - name: github.com/intelsdi-x/snap-plugin-lib-go
-  version: 66c6cb04aa95b63e6051d0a20280581e0f2309c7
+  version: 4b5999a62ffb7604f173c1ab3c2205ba8b559624
   subpackages:
   - v1/plugin
   - v1/plugin/rpc
