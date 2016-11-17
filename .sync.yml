@@ -7,6 +7,37 @@
       - GOOS: darwin
         GOARCH: amd64
 .travis.yml:
+  sudo: true
+  services:
+    - docker
+  env:
+    global:
+      - ORG_PATH=/home/travis/gopath/src/github.com/intelsdi-x
+      - SNAP_PLUGIN_SOURCE=/home/travis/gopath/src/github.com/${TRAVIS_REPO_SLUG}
+    matrix:
+      - TEST_TYPE: small
+      - SNAP_VERSION: latest_build
+        SNAP_OS: alpine
+        TEST_TYPE: large
+      - SNAP_VERSION: latest_build
+        SNAP_OS: alpine
+        TEST_TYPE: large
+      - SNAP_VERSION: latest_build
+        SNAP_OS: xenial
+        TEST_TYPE: large
+      - SNAP_VERSION: latest_build
+        SNAP_OS: centos7
+        TEST_TYPE: large
+  matrix:
+    exclude:
+      - go: 1.6.3
+        env: SNAP_VERSION=latest_build SNAP_OS=alpine TEST_TYPE=large
+      - go: 1.6.3
+        env: SNAP_VERSION=latest_build SNAP_OS=alpine TEST_TYPE=large
+      - go: 1.6.3
+        env: SNAP_VERSION=latest_build SNAP_OS=xenial TEST_TYPE=large
+      - go: 1.6.3
+        env: SNAP_VERSION=latest_build SNAP_OS=centos7 TEST_TYPE=large
   deploy:
     access_key_id: AKIAINMB43VSSPFZISAA
     secret_access_key:

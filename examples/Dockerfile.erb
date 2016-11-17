@@ -1,0 +1,10 @@
+FROM intelsdi/snap:<%= ENV['SNAP_OS'] || "alpine" -%>_test
+
+ENV CI_URL=https://s3-us-west-2.amazonaws.com/snap.ci.snap-telemetry.io
+
+ADD ${CI_URL}/plugins/snap-plugin-collector-psutil/latest/linux/x86_64/snap-plugin-collector-psutil /opt/snap/plugins/snap-plugin-collector-psutil
+ADD ${CI_URL}/plugins/snap-plugin-publisher-file/latest/linux/x86_64/snap-plugin-publisher-file /opt/snap/plugins/snap-plugin-publisher-file
+COPY snap-plugin-processor-statistics /opt/snap/plugins/snap-plugin-processor-statistics
+COPY tasks/ /opt/snap/tasks/
+
+RUN chmod 755 /opt/snap/plugins/snap-plugin*
