@@ -17,11 +17,12 @@ Snap plugin intended to process data and return statistics over a sliding window
 ## Getting Started
 ### System Requirements
 * Linux/amd64
+* OS X
 
 ### Installation
 #### Download plugin binary: 
 
-You can get the pre-built binaries for your OS and architecture at Snap's [Github Releases](https://github.com/intelsdi-x/snap/releases) page.
+You can get the pre-built binaries for your OS and architecture from the plugin's [GitHub Releases](https://github.com/intelsdi-x/snap-plugin-processor-statistics/releases) page. Download the plugin from the latest release and load it into `snapd` (`/opt/snap/plugins` is the default location for Snap packages).
 
 #### To build the plugin binary:
 Fork https://github.com/intelsdi-x/snap-plugin-processor-statistics
@@ -34,25 +35,58 @@ Build the plugin by running make in repo:
 ```
 $ make
 ```
-This builds the plugin in `/build/rootfs`
+This builds the plugin in `./build`
+
+Unit testing:
+```
+$ make test-small
+```
 
 ### Configuration and Usage
-* Set up the [snap framework](https://github.com/intelsdi-x/snap/blob/master/README.md#getting-started)
-* Ensure `$SNAP_PATH` is exported
-`export SNAP_PATH=$GOPATH/src/github.com/intelsdi-x/snap/build`
+* Set up the [Snap framework](https://github.com/intelsdi-x/snap#getting-started)
 
 ## Documentation
-This Snap processor plugin calculates statistics over a sliding window. Currently, the plugin calculates the mean, median, standard deviation, variance, 95th-percentile and 99th-percenticle over a sliding window. 
+This Snap processor plugin calculates statistics over a sliding window. To illustrate the sliding window concept, let's say we have a sliding window of 10 over 100 points long, if the sliding factor is 1 and we want to calculate the statistic "average", it will take the average from 0-10, 1-11, 2-12, 3-13 and so on. That takes the 100 data points and averages to 99 points.
+Sliding window can be used to smooth out a waveform thereby reducing noise. It is very useful in handling noisey data and also in live streaming of data.
+In regular windowing, it takes the average of data points 0-10, then 11-20, then 21-30 and so on. So there will be 10 points instead of 100.
+So in regular windowing, we have two variables, the size of the dataset, and the size of the window. Since sliding windows "overlap" the previous and following windows, we have the total size, window size and sliding factor.  		
 
-Note: This Snap processor plugin changes the metric data type to `map[string]float64`. Any Snap publisher plugin used with this plugin should register the data type with gob. 
+Here's an example of the sliding window length concept and also the list of statistics calculated by the processor statistics plugin along with their descriptions-
+[Sliding Window.pdf](https://github.com/intelsdi-x/snap-plugin-processor-statistics/files/599298/Sliding.Window.pdf)
 
-```
-import "encoding/gob"
-
-gob.Register(map[string]float64{})
-```
-
+The default values of sliding factor is 1 and the interval is 1s. Sliding window length default is 100.		
+		 
 ### Examples
+Example running psutil plugin, statistics processor, and writing data into a file.
+
+Documentation for Snap collector psutil plugin can be found [here](https://github.com/intelsdi-x/snap-plugin-collector-psutil)
+
+In one terminal window, open the Snap daemon :
+```
+$ snapd -t 0 -l 1
+```
+The option "-l 1" it is for setting the debugging log level and "-t 0" is for disabling plugin signing.
+
+In another terminal window:
+
+Download and load collector, processor and publisher plugins
+```
+$ wget http://snap.ci.snap-telemetry.io/plugins/snap-plugin-collector-psutil/latest/linux/x86_64/snap-plugin-collector-psutil
+$ wget http://snap.ci.snap-telemetry.io/plugins/snap-plugin-processor-statistics/latest/linux/x86_64/snap-plugin-processor-statistics
+$ wget http://snap.ci.snap-telemetry.io/plugins/snap-plugin-publisher-file/latest/linux/x86_64/snap-plugin-publisher-file
+$ chmod 755 snap-plugin-*
+$ snapctl plugin load snap-plugin-collector-psutil
+$ snapctl plugin load snap-plugin-publisher-file
+$ snapctl plugin load snap-plugin-processor-statistics
+```
+
+See available metrics for your system
+```
+$ snapctl metric list
+```
+
+Create a task file. For example, sample-psutil-statistics-task.json:
+
 Creating a task manifest file. 
 ```
 {
@@ -61,27 +95,24 @@ Creating a task manifest file.
         "type": "simple",
         "interval": "1s"
     },
+    "max-failures": 2,
     "workflow": {
         "collect": {
             "metrics": {
-                "/intel/mock/foo": {},
-                "/intel/mock/bar": {},
-                "/intel/mock/*/baz": {}
-            },
-            "config": {
-                "/intel/mock": {
-                    "user": "root",
-                    "password": "secret"
-                }
+                "/intel/psutil/load/load1": {},
+                "/intel/psutil/load/load5": {},
+                "/intel/psutil/load/load15": {},
+                "/intel/psutil/vm/free": {},
+                "/intel/psutil/vm/used": {}
             },
             "process": [
                 {
                     "plugin_name": "statistics",
 		    "config":
     			{
-	    			"SlidingWindowLength": 15
+	    			"SlidingWindowLength": 5,
+                    "SlidingFactor": 2,
 			},		
-                    "process": null,
                     "publish": [
                         {
                             "plugin_name": "file",
@@ -95,6 +126,30 @@ Creating a task manifest file.
         }
     }
 }
+```
+
+Start task:
+```
+$ snapctl task create -t sample-psutil-statistics-task.json
+Using task manifest to create task
+Task created
+ID: 02dd7ff4-8106-47e9-8b86-70067cd0a850
+Name: Task-02dd7ff4-8106-47e9-8b86-70067cd0a850
+State: Running
+```
+
+See realtime output from `snapctl task watch <task_id>` (CTRL+C to exit)
+```
+snapctl task watch 02dd7ff4-8106-47e9-8b86-70067cd0a850
+```
+
+This data is published to a file `/tmp/published` per task specification
+
+Stop task:
+```
+$ snapctl task stop 02dd7ff4-8106-47e9-8b86-70067cd0a850
+Task stopped:
+ID: 02dd7ff4-8106-47e9-8b86-70067cd0a850
 ```
 
 ### Roadmap
@@ -117,6 +172,7 @@ And **thank you!** Your contribution, through code and participation, is incredi
 
 ## Acknowledgements
 
-* Author: [Balaji Subramaniam](https://github.com/balajismaniam)
+* Authors: [Rashmi Gottipati](https://github.com/rashmigottipati),
+           [Balaji Subramaniam](https://github.com/balajismaniam)
 
 And **thank you!** Your participation and contribution through code is important to us.
