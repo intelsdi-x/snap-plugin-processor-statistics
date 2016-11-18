@@ -17,6 +17,7 @@ Snap plugin intended to process data and return statistics over a sliding window
 ## Getting Started
 ### System Requirements
 * Linux/amd64
+* OS X
 
 ### Installation
 #### Download plugin binary: 
@@ -36,20 +37,25 @@ $ make
 ```
 This builds the plugin in `./build`
 
+Unit testing:
+```
+$ make test-small
+```
+
 ### Configuration and Usage
 * Set up the [Snap framework](https://github.com/intelsdi-x/snap#getting-started)
 
 ## Documentation
-This Snap processor plugin calculates statistics over a sliding window. Currently, the plugin calculates the mean, median, standard deviation, variance, 95th-percentile and 99th-percenticle over a sliding window. 
+This Snap processor plugin calculates statistics over a sliding window. To illustrate the sliding window concept, let's say we have a sliding window of 10 over 100 points long, if the sliding factor is 1 and we want to calculate the statistic "average", it will take the average from 0-10, 1-11, 2-12, 3-13 and so on. That takes the 100 data points and averages to 99 points.
+Sliding window can be used to smooth out a waveform thereby reducing noise. It is very useful in handling noisey data and also in live streaming of data.
+In regular windowing, it takes the average of data points 0-10, then 11-20, then 21-30 and so on. So there will be 10 points instead of 100.
+So in regular windowing, we have two variables, the size of the dataset, and the size of the window. Since sliding windows "overlap" the previous and following windows, we have the total size, window size and sliding factor.  		
 
-Note: This Snap processor plugin changes the metric data type to `map[string]float64`. Any Snap publisher plugin used with this plugin should register the data type with gob. 
+Here's an example of the sliding window length concept and also the list of statistics calculated by the processor statistics plugin along with their descriptions-
+[Sliding Window.pdf](https://github.com/intelsdi-x/snap-plugin-processor-statistics/files/599298/Sliding.Window.pdf)
 
-```
-import "encoding/gob"
-
-gob.Register(map[string]float64{})
-```
-
+The default values of sliding factor is 1 and the interval is 1s. Sliding window length default is 100.		
+		 
 ### Examples
 Example running psutil plugin, statistics processor, and writing data into a file.
 
@@ -89,6 +95,7 @@ Creating a task manifest file.
         "type": "simple",
         "interval": "1s"
     },
+    "max-failures": 2,
     "workflow": {
         "collect": {
             "metrics": {
@@ -103,9 +110,9 @@ Creating a task manifest file.
                     "plugin_name": "statistics",
 		    "config":
     			{
-	    			"SlidingWindowLength": 15
+	    			"SlidingWindowLength": 5,
+                    "SlidingFactor": 2,
 			},		
-                    "process": null,
                     "publish": [
                         {
                             "plugin_name": "file",
@@ -165,6 +172,7 @@ And **thank you!** Your contribution, through code and participation, is incredi
 
 ## Acknowledgements
 
-* Author: [Balaji Subramaniam](https://github.com/balajismaniam)
+* Authors: [Rashmi Gottipati](https://github.com/rashmigottipati),
+           [Balaji Subramaniam](https://github.com/balajismaniam)
 
 And **thank you!** Your participation and contribution through code is important to us.
