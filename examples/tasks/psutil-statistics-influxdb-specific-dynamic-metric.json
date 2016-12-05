@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "schedule": {
+    "type": "simple",
+    "interval": "1s"
+  },
+  "workflow": {
+    "collect": {
+      "metrics": {
+        "/intel/psutil/net/eno1/packets_recv": {}
+      },
+      "process": [
+        {
+          "plugin_name": "statistics",
+          "config": {
+            "SlidingWindowLength": 5,
+            "SlidingFactor": 2
+          },
+          "publish": [
+            {
+              "plugin_name": "influxdb",
+              "config": {
+                "host": "127.0.0.1",
+                "port": 8086,
+                "database": "snap-specific",
+                "user": "admin",
+                "password": "admin"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+
