@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "schedule": {
+    "type": "simple",
+    "interval": "1s"
+  },
+  "workflow": {
+    "collect": {
+      "metrics": {
+        "/intel/psutil/net/*/packets_recv": {}
+      },
+      "process": [
+        {
+          "plugin_name": "statistics",
+          "config": {
+             "SlidingWindowLength": 5,
+             "SlidingFactor": 2
+          },
+          "publish": [
+            {
+              "plugin_name": "file",
+              "config": {
+                "file": "/tmp/published_statistics_dynamic_metrics.log"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
