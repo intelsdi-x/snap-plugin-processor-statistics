@@ -1,11 +1,11 @@
 # File managed by pluginsync
 sudo: true
-services: 
-- docker
 language: go
 go:
 - 1.6.3
 - 1.7.3
+services:
+  - docker
 env:
   global:
   - ORG_PATH=/home/travis/gopath/src/github.com/intelsdi-x
@@ -24,11 +24,9 @@ env:
   - SNAP_VERSION: latest_build
     SNAP_OS: centos7
     TEST_TYPE: large
-  - TEST_TYPE: build
+  - TEST_TYPE=build
 matrix:
   exclude:
-  - go: 1.6.3
-    env: TEST_TYPE=build
   - go: 1.6.3
     env: SNAP_VERSION=latest_build SNAP_OS=alpine TEST_TYPE=large
   - go: 1.6.3
@@ -37,6 +35,8 @@ matrix:
     env: SNAP_VERSION=latest_build SNAP_OS=xenial TEST_TYPE=large
   - go: 1.6.3
     env: SNAP_VERSION=latest_build SNAP_OS=centos7 TEST_TYPE=large
+  - go: 1.6.3
+    env: TEST_TYPE=build
 before_install:
 - "[[ -d $SNAP_PLUGIN_SOURCE ]] || mkdir -p $ORG_PATH && ln -s $TRAVIS_BUILD_DIR $SNAP_PLUGIN_SOURCE"
 install:
