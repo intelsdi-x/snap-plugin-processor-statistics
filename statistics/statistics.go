@@ -67,8 +67,7 @@ func (p *Plugin) Process(metrics []plugin.Metric, cfg plugin.Config) ([]plugin.M
 			return nil, err
 		}
 
-		nsSlice := metric.Namespace.Strings()
-		ns := strings.Join(nsSlice, "")
+		ns := strings.Join(metric.Namespace.Strings(), "")
 		_, ok := p.buffer[ns]
 		if !ok {
 			//if there is no buffer for this particular namespace, then we create a new one
@@ -84,7 +83,7 @@ func (p *Plugin) Process(metrics []plugin.Metric, cfg plugin.Config) ([]plugin.M
 		p.buffer[ns].Insert(floatValue, metric.Timestamp)
 		// add a new element to the sorted list
 		if p.buffer[ns].slidingFactorIndex%slidingFactor == 0 {
-			mts, err := p.buffer[ns].GetStats(stats, nsSlice)
+			mts, err := p.buffer[ns].GetStats(stats, metric.Namespace)
 			if err != nil {
 				return nil, err
 			}

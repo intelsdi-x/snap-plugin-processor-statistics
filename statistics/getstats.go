@@ -81,14 +81,14 @@ func (b *dataBuffer) Insert(value float64, ts time.Time) {
 	}
 }
 
-func (d *dataBuffer) GetStats(stats []string, ns []string) ([]plugin.Metric, error) {
+func (d *dataBuffer) GetStats(stats []string, ns plugin.Namespace) ([]plugin.Metric, error) {
 	if len(d.data) == 0 {
 		return nil, nil
 	}
 	var results []plugin.Metric
 
 	// Namespace prefix and tags are common for every stats
-	nsPrefix := append([]string{"intel", "statistics"}, ns...)
+	ns = append(plugin.NewNamespace([]string{"intel", "statistics"}...), ns...)
 	tags := d.GetTags()
 
 	// statistics are stored in a map
@@ -112,7 +112,7 @@ func (d *dataBuffer) GetStats(stats []string, ns []string) ([]plugin.Metric, err
 		newStat := statMap[stat]
 
 		// create the metric from the statistic we just calculated
-		err = createMetrics(&results, newStat, tags, append(nsPrefix, stat))
+		err = createMetrics(&results, newStat, tags, ns, stat)
 		if err != nil {
 			return nil, err
 		}
@@ -136,7 +136,7 @@ func (a byTimestamp) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a byTimestamp) Less(i, j int) bool { return a[i].ts.After(a[j].ts) }
 
 // Creates a metric for each statistic
-func createMetrics(result *[]plugin.Metric, data interface{}, tags map[string]string, ns []string) error {
+func createMetrics(result *[]plugin.Metric, data interface{}, tags map[string]string, ns plugin.Namespace, metricName string) error {
 	switch data.(type) {
 	case float64:
 		if math.IsNaN(data.(float64)) {
@@ -147,14 +147,14 @@ func createMetrics(result *[]plugin.Metric, data interface{}, tags map[string]st
 	case []float64:
 		for _, val := range data.([]float64) {
 			*result = append(*result, createMetric(val, tags,
-				plugin.NewNamespace(ns...).AddDynamicElement("highestfreq", "Gives the highest number of occurences of a data value")))
+				copyNs(ns).AddStaticElement(metricName).AddDynamicElement("highestfreq", "Gives the highest number of occurences of a data value")))
 		}
 		return nil
 	default:
 		return fmt.Errorf("invalid type for a statistic")
 	}
 
-	namespace := plugin.NewNamespace(ns...)
+	namespace := copyNs(ns).AddStaticElement(metricName)
 	*result = append(*result, createMetric(data, tags, namespace))
 	return nil
 }
@@ -166,6 +166,14 @@ func createMetric(data interface{}, tags map[string]string, namespace plugin.Nam
 		Data:      data,
 		Namespace: namespace,
 	}
+}
+
+func copyNs(nsIn plugin.Namespace) plugin.Namespace {
+	nsOut := make(plugin.Namespace, len(nsIn))
+	for i := range nsIn {
+		nsOut[i] = nsIn[i]
+	}
+	return nsOut
 }
 
 // Get tags which are start time and stop time
