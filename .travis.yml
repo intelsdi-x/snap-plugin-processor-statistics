@@ -2,10 +2,10 @@
 sudo: true
 language: go
 go:
-- 1.6.3
-- 1.7.3
+- 1.7.x
+- 1.8.x
 services:
-  - docker
+- docker
 env:
   global:
   - ORG_PATH=/home/travis/gopath/src/github.com/intelsdi-x
@@ -24,7 +24,7 @@ env:
   - SNAP_VERSION: latest_build
     SNAP_OS: centos7
     TEST_TYPE: large
-  - TEST_TYPE=build
+  - TEST_TYPE: build
 matrix:
   exclude:
   - go: 1.6.3
@@ -35,7 +35,7 @@ matrix:
     env: SNAP_VERSION=latest_build SNAP_OS=xenial TEST_TYPE=large
   - go: 1.6.3
     env: SNAP_VERSION=latest_build SNAP_OS=centos7 TEST_TYPE=large
-  - go: 1.6.3
+  - go: 1.7.x
     env: TEST_TYPE=build
 before_install:
 - "[[ -d $SNAP_PLUGIN_SOURCE ]] || mkdir -p $ORG_PATH && ln -s $TRAVIS_BUILD_DIR $SNAP_PLUGIN_SOURCE"
@@ -52,9 +52,8 @@ before_deploy:
 - "./scripts/pre_deploy.sh"
 deploy:
 - provider: s3
-  access_key_id: AKIAINMB43VSSPFZISAA
-  secret_access_key:
-    secure: OFcJ+8vV6CcUYMD+TUMsDUEudL8oD9MCM9HbfDg2BSSoYuuIIaN1G45BH0uV5tYfVlGQNd+Er5aEO7n7jxyu2eZuTofo/WhutFDmCcyFufzTn3p7GZGPcDHnI3PCi1FN+U+tHQ8V2vFdRll3TrZz9YpGFifRuzCa4oOcGfjBmQz9pU4K3cYFwsvO6sERiXVe+cED5wfO/7iMvnVS+QFqqwEV12k4+iM10zrzF6JRV28UL8fWRRhYAqXc2r8zSXl/VRxR6PfCFRQPWariPxD8MR5Lqo+4s6arrtGeOX9sETlLCILBrAJ5JYoEJEVfaHjzZSE2ecSeBIYUvQCALUH8FQD5Vlv6nf1fQAcpH1YmOqQct559ibv0Mk8K/+S/14Gba+SYgib6D/NC9g5NSYKrXfBo/+xfw42Iid/qlagXBaAxBXNw10Jaw7pa0eFz/4R5ruJ40/NA2vm+pYHIcewc3URxIjsCQrAhlRpXRRohB/grH0WWGDOwkZeMW9wGx8cVUhiScD6sibSNoAxEqAiSLxvVzy2N73/PnZxdqu/xJkaCUGCmlQkU6zv2RlxdSSU/eNU52wmGDxerlE9aoHfvbQML7XWPyw/vsLcsNtOG+cFd1lM3vWw9HpuKKgbGo8SRDRLaiWyEs11TsYz4ek1wom9a2pXgO2A6ZmuDAtiGHL4=
+  access_key_id: $AWS_ACCESS_KEY_ID
+  secret_access_key: $AWS_SECRET_ACCESS_KEY
   bucket: snap.ci.snap-telemetry.io
   region: us-west-2
   skip_cleanup: true
@@ -64,11 +63,10 @@ deploy:
   on:
     repo: intelsdi-x/snap-plugin-processor-statistics
     branch: master
-    condition: $TEST_TYPE = "build" && $TRAVIS_GO_VERSION = "1.7.3"
+    condition: $TEST_TYPE = "build" && $TRAVIS_GO_VERSION =~ ^1\.8(|\.[0-9]+)$
 - provider: s3
-  access_key_id: AKIAINMB43VSSPFZISAA
-  secret_access_key:
-    secure: OFcJ+8vV6CcUYMD+TUMsDUEudL8oD9MCM9HbfDg2BSSoYuuIIaN1G45BH0uV5tYfVlGQNd+Er5aEO7n7jxyu2eZuTofo/WhutFDmCcyFufzTn3p7GZGPcDHnI3PCi1FN+U+tHQ8V2vFdRll3TrZz9YpGFifRuzCa4oOcGfjBmQz9pU4K3cYFwsvO6sERiXVe+cED5wfO/7iMvnVS+QFqqwEV12k4+iM10zrzF6JRV28UL8fWRRhYAqXc2r8zSXl/VRxR6PfCFRQPWariPxD8MR5Lqo+4s6arrtGeOX9sETlLCILBrAJ5JYoEJEVfaHjzZSE2ecSeBIYUvQCALUH8FQD5Vlv6nf1fQAcpH1YmOqQct559ibv0Mk8K/+S/14Gba+SYgib6D/NC9g5NSYKrXfBo/+xfw42Iid/qlagXBaAxBXNw10Jaw7pa0eFz/4R5ruJ40/NA2vm+pYHIcewc3URxIjsCQrAhlRpXRRohB/grH0WWGDOwkZeMW9wGx8cVUhiScD6sibSNoAxEqAiSLxvVzy2N73/PnZxdqu/xJkaCUGCmlQkU6zv2RlxdSSU/eNU52wmGDxerlE9aoHfvbQML7XWPyw/vsLcsNtOG+cFd1lM3vWw9HpuKKgbGo8SRDRLaiWyEs11TsYz4ek1wom9a2pXgO2A6ZmuDAtiGHL4=
+  access_key_id: $AWS_ACCESS_KEY_ID
+  secret_access_key: $AWS_SECRET_ACCESS_KEY
   bucket: snap.ci.snap-telemetry.io
   region: us-west-2
   skip_cleanup: true
@@ -78,10 +76,9 @@ deploy:
   on:
     repo: intelsdi-x/snap-plugin-processor-statistics
     tags: true
-    condition: $TEST_TYPE = "build" && $TRAVIS_GO_VERSION = "1.7.3"
+    condition: $TEST_TYPE = "build" && $TRAVIS_GO_VERSION =~ ^1\.8(|\.[0-9]+)$
 - provider: releases
-  api_key:
-    secure: fVZ/wVGNcCLUDOGJld13wRs/CQYD5WvxWV3OsmqTj14CZsdNJlaYzl+nzKQHwcgaADuZS3z0oEuaCPIG3BGKUp3y65wKZqnZJZYpIrig/egQ7iSCJKVfrMWTgGtyzEcguSvgR11y9Dar5AfOoe0OdE0q+0MdesxwVDdjvHA4hCKR1fBNVkeYLJkgn9GWGkO3NYY3MDpTip+2EQ2L3kRaAbjJ/THwAnTB4AS0HFH04Iem+IzklvXJlAB8zXO/CssjbbhDZkYtnXxf9bRxSL1pMn+y4m+q50y2P643bSDdwSoxNkNkpuHC2DXiTblzJmgyAN/up2J5He9PmeGCLxOI/sO6LuKSAB5DBYKAQrgGBaEd9EQygvyPuZ1EnTFSH0/Dka2HWTlZZhHaMti8czqoOndqlkp7qysTqQczbnKSUhwBPj3DPMN4MRPcx4l5ZTFcJkIMfc0CoOnbgHeoTsvknBCfp843R4J2i5gJNBw7OO9xb7ILFztMI4VBaeMUzEnipSHcSYSrawyC6NxVfbI1oOmaWxVTOrKYzN0uwHYcc5AA5wmkkpIRdJiqOGGEOeYCh2qBmxZmsyuyVhcKFDgK070KiypbnFQEkP2eguRb+PingKBiEWKBshe3NsPYD09c8PKEbhB8fRWRo31QEXDLnKkQOUG/pgqVOn4GI3IGliw=
+  api_key: $GITHUB_API_KEY
   file:
     - release/snap-plugin-processor-statistics_linux_x86_64
     - release/snap-plugin-processor-statistics_darwin_x86_64
@@ -89,4 +86,4 @@ deploy:
   on:
     repo: intelsdi-x/snap-plugin-processor-statistics
     tags: true
-    condition: $TEST_TYPE = "build" && $TRAVIS_GO_VERSION = "1.7.3"
+    condition: $TEST_TYPE = "build" && $TRAVIS_GO_VERSION =~ ^1\.8(|\.[0-9]+)$
